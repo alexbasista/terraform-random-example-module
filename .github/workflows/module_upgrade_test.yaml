@@ -89,6 +89,7 @@ jobs:
           git clone . "$BASELINE_DIR"
           cd "$BASELINE_DIR"
           git checkout "${{ matrix.upgrade_from }}"
+          ls -l "$BASELINE_DIR"
 
       - name: Update test module source to baseline version
         run: |
@@ -98,6 +99,7 @@ jobs:
       - name: Terraform Init + Apply (release)
         run: |
           BASELINE_DIR="baseline-${{ matrix.upgrade_from }}"
+          cat "$BASELINE_DIR/tests/main.tf"
           terraform -chdir="$BASELINE_DIR/tests/default" init -input=false
           terraform -chdir="$BASELINE_DIR/tests/default" apply -auto-approve
 
@@ -105,7 +107,6 @@ jobs:
         run: |
           BASELINE_DIR="baseline-${{ matrix.upgrade_from }}"
           cp "$BASELINE_DIR/tests/default/terraform.tfstate" tests/default/ || true
-          cp "$BASELINE_DIR/tests/default/terraform.tfstate.backup" tests/default/ || true
           cp -r "$BASELINE_DIR/tests/default/.terraform" tests/default/ || true
 
       - name: Switch to local module source (upgrade test)
