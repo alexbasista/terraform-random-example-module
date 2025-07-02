@@ -89,7 +89,7 @@ jobs:
           git clone . "$BASELINE_DIR"
           cd "$BASELINE_DIR"
           git checkout "${{ matrix.upgrade_from }}"
-          ls -l "$BASELINE_DIR"
+          ls -l
 
       - name: Update test module source to baseline version
         run: |
