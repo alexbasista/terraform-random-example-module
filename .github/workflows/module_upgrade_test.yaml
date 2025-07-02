@@ -42,7 +42,7 @@ jobs:
       - name: Print latest tag
         run: echo "Latest tag is ${{ steps.latest_tag.outputs.tag }}"
 
-      - name: Use released module version
+      - name: Use latest released module version
         run: |
           sed -i 's|__MODULE_SOURCE__|git::https://github.com/${{ github.repository }}.git//.?ref=${{ steps.latest_tag.outputs.tag }}|' tests/default/main.tf
 
@@ -51,21 +51,16 @@ jobs:
           terraform -chdir=tests/default init -input=false
           terraform -chdir=tests/default apply -auto-approve
 
-      # - name: Prepare test directory
-      #   run: |
-      #     cp -r tests/default test-run
-      #     sed -i "s|source = \"../..\"|source = \"git::https://github.com/${{ github.repository }}.git//.?ref=${{ steps.latest_tag.outputs.tag }}\"|" test-run/main.tf
+      - name: Switch to local module source (upgrade test)
+        run: |
+          sed -i 's|source = .*|source = "../.."|' tests/default/main.tf
 
-      # - name: Terraform Init + Apply (latest tag)
-      #   run: |
-      #     terraform -chdir=test-run init -input=false
-      #     terraform -chdir=test-run apply -auto-approve
+      - name: Terraform Init + Plan (upgrade test)
+        run: |
+          terraform -chdir=tests/default init -upgrade -input=false
+          terraform -chdir=tests/default plan -detailed-exitcode -input=false
 
-      # - name: Replace module source with current code
-      #   run: |
-      #     sed -i "s|source = .*|source = \"../..\"|" test-run/main.tf
-
-      # - name: Terraform Init + Plan (upgrade test)
-      #   run: |
-      #     terraform -chdir=test-run init -upgrade -input=false
-      #     terraform -chdir=test-run plan -detailed-exitcode -input=false
+      - name: Terraform Destroy
+        if: always()
+        run: |
+          terraform -chdir=tests/default destroy -auto-approve || true
