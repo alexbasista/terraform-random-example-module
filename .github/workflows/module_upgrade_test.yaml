@@ -16,6 +16,7 @@ env:
 
 jobs:
   discover-tags:
+    name: Discover semver tags
     runs-on: ubuntu-latest
     outputs:
       tags: ${{ steps.get-tags.outputs.tags }}
