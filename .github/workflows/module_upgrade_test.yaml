@@ -94,7 +94,8 @@ jobs:
       - name: Update test module source to baseline version
         run: |
           BASELINE_DIR="baseline-${{ matrix.upgrade_from }}"
-          sed -i 's|__MODULE_SOURCE__|git::https://github.com/${{ github.repository }}.git//.?ref=${{ matrix.upgrade_from }}|' "$BASELINE_DIR/tests/default/main.tf"
+          #sed -i 's|__MODULE_SOURCE__|git::https://github.com/${{ github.repository }}.git//.?ref=${{ matrix.upgrade_from }}|' "$BASELINE_DIR/tests/default/main.tf"
+          sed -i 's|source = .*|source = "git::https://github.com/${{ github.repository }}.git//.?ref=${{ matrix.upgrade_from }}"|' "$BASELINE_DIR/tests/default/main.tf"
 
       - name: Terraform Init + Apply (release)
         run: |
