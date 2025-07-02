@@ -10,9 +10,6 @@ on:
       - '**.yml'
       - 'tests/**'
       - 'examples/**'
-  # push:
-  #   branches:
-  #     - main
 
 env:
   INCLUDE_PREVIOUS_MAJOR_VERSION: true # set to false to skip N-1 major version test
