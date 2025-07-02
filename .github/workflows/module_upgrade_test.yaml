@@ -50,9 +50,12 @@ jobs:
           # Output as JSON array for matrix
           echo "tags=$(jq -c -n '$ARGS.positional' --args "${arr[@]}")" >> $GITHUB_OUTPUT
         
-      - name: Set matrix
+      - name: Set tags matrix
         id: set-matrix
         run: echo "tags=${{ steps.get-tags.outputs.tags }}" >> $GITHUB_OUTPUT
+      
+      - name: Print tags matrix output
+        run: echo "TAGS=${{ steps.set-matrix.outputs.tags }}"
 
   upgrade-test:
     needs: discover-tags
