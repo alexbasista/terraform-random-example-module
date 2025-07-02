@@ -51,13 +51,16 @@ jobs:
           echo "tags<<EOF" >> $GITHUB_OUTPUT
           echo "${arr_json}" >> $GITHUB_OUTPUT
           echo "EOF" >> $GITHUB_OUTPUT
+        
+        outputs:
+          tags: ${{ steps.get-tags.outputs.tags }}
 
-      - name: Set tags matrix
-        id: set-matrix
-        run: echo "tags=${{ steps.get-tags.outputs.tags }}" >> $GITHUB_OUTPUT
+      # - name: Set tags matrix
+      #   id: set-matrix
+      #   run: echo "tags=${{ steps.get-tags.outputs.tags }}" >> $GITHUB_OUTPUT
       
-      - name: Print tags matrix output
-        run: echo "TAGS=${{ steps.set-matrix.outputs.tags }}"
+      # - name: Print tags matrix output
+      #   run: echo "TAGS=${{ steps.set-matrix.outputs.tags }}"
 
   upgrade-test:
     needs: discover-tags
