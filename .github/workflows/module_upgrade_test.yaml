@@ -66,6 +66,7 @@ jobs:
     strategy:
       matrix:
         upgrade_from: ${{ fromJson(needs.discover-tags.outputs.tags) }}
+        terraform_version: [1.12.2, 1.11.4]
     steps:
       - name: Checkout repo
         uses: actions/checkout@v4
@@ -75,7 +76,7 @@ jobs:
       - name: Set up Terraform
         uses: hashicorp/setup-terraform@v3
         with:
-          terraform_version: 1.12.2
+          terraform_version: ${{ matrix.terraform_version }}
 
       - name: Print upgrade source
         run: echo "Testing upgrade from ${{ matrix.upgrade_from }}"
