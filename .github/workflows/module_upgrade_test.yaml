@@ -14,11 +14,12 @@ on:
   #   branches:
   #     - main
 
+env:
+  INCLUDE_PREVIOUS_MAJOR_VERSION: true # set to false to skip N-1 major version test
+
 jobs:
   discover-tags:
     runs-on: ubuntu-latest
-    env:
-      INCLUDE_PREVIOUS_MAJOR: true # set to false to skip N-1 major version test
     outputs:
       tags: ${{ steps.get-tags.outputs.tags }}
     steps:
@@ -48,7 +49,7 @@ jobs:
           fi
           arr=()
           [ -n "$latest_tag" ] && arr+=("$latest_tag")
-          if [[ "${INCLUDE_PREVIOUS_MAJOR}" == "true" ]]; then
+          if [[ "${INCLUDE_PREVIOUS_MAJOR_VERSION}" == "true" ]]; then
             [ -n "$prev_major_tag" ] && arr+=("$prev_major_tag")
           fi
           arr_json=$(printf '%s\n' "${arr[@]}" | jq -R . | jq -s -c .)
