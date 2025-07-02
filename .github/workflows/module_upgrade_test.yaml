@@ -40,7 +40,7 @@ jobs:
           echo "tag=$(git describe --tags --abbrev=0)" >> "$GITHUB_OUTPUT"
       
       - name: Print latest tag
-        run: echo "Latest tag is: ${{ steps.latest_tag.outputs.tag }}"
+        run: echo "Latest tag is ${{ steps.latest_tag.outputs.tag }}"
 
       # - name: Prepare test directory
       #   run: |
