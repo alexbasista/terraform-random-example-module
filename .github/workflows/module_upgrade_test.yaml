@@ -48,7 +48,8 @@ jobs:
           [ -n "$latest_tag" ] && arr+=("$latest_tag")
           [ -n "$prev_major_tag" ] && arr+=("$prev_major_tag")
           # Output as JSON array for matrix
-          echo "tags=$(jq -c -n '$ARGS.positional' --args "${arr[@]}")" >> $GITHUB_OUTPUT
+          arr_json=$(printf '%s\n' "${arr[@]}" | jq -R . | jq -s .)
+          echo "tags=${arr_json}" >> $GITHUB_OUTPUT
         
       - name: Set tags matrix
         id: set-matrix
