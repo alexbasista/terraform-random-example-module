@@ -29,14 +29,21 @@ jobs:
         id: get-tags
         shell: bash
         run: |
+          set -e
           git fetch --tags
           tags=$(git tag -l 'v[0-9]*.[0-9]*.[0-9]*' | grep -Ev -- '-')
           sorted_tags=$(echo "$tags" | sort -V)
           major_versions=$(echo "$sorted_tags" | sed -E 's/^v([0-9]+)\..*/\1/' | sort -nr | uniq)
-          current_major=$(echo "$major_versions" | head -n1)
-          prev_major=$(echo "$major_versions" | sed -n 2p)
-          latest_tag=$(echo "$sorted_tags" | grep "^v$current_major\." | tail -n1)
-          prev_major_tag=$(echo "$sorted_tags" | grep "^v$prev_major\." | tail -n1)
+          current_major=$(echo "$major_versions" | head -n1 || true)
+          prev_major=$(echo "$major_versions" | sed -n 2p || true)
+          latest_tag=""
+          prev_major_tag=""
+          if [ -n "$current_major" ]; then
+            latest_tag=$(echo "$sorted_tags" | grep "^v${current_major}\." | tail -n1 || true)
+          fi
+          if [ -n "$prev_major" ]; then
+            prev_major_tag=$(echo "$sorted_tags" | grep "^v${prev_major}\." | tail -n1 || true)
+          fi
           arr=()
           [ -n "$latest_tag" ] && arr+=("$latest_tag")
           [ -n "$prev_major_tag" ] && arr+=("$prev_major_tag")
