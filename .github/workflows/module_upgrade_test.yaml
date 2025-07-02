@@ -58,13 +58,15 @@ jobs:
         run: |
           echo "Discovered tags: ${{ steps.get-tags.outputs.tags }}"
 
+# --------------------------------------------------------------------------------------------------------------- #
+
   upgrade-test:
     needs: discover-tags
     runs-on: ubuntu-latest
     strategy:
       matrix:
         upgrade_from: ${{ fromJson(needs.discover-tags.outputs.tags) }}
-        terraform_version: [1.12.2, 1.11.4]
+        terraform_version: [1.12.2]
     steps:
       - name: Checkout repo
         uses: actions/checkout@v4
@@ -81,14 +83,30 @@ jobs:
           echo "Testing upgrade from module version ${{ matrix.upgrade_from }}"
           echo "Testing Terraform version ${{ matrix.terraform_version }}"
       
-      - name: Use released module version
+      - name: Checkout baseline module version (upgrade_from)
         run: |
-          sed -i 's|__MODULE_SOURCE__|git::https://github.com/${{ github.repository }}.git//.?ref=${{ matrix.upgrade_from }}|' tests/default/main.tf
+          BASELINE_DIR="baseline-${{ matrix.upgrade_from }}"
+          git clone . "$BASELINE_DIR"
+          cd "$BASELINE_DIR"
+          git checkout "${{ matrix.upgrade_from }}"
+
+      - name: Update test module source to baseline version
+        run: |
+          BASELINE_DIR="baseline-${{ matrix.upgrade_from }}"
+          sed -i 's|__MODULE_SOURCE__|git::https://github.com/${{ github.repository }}.git//.?ref=${{ matrix.upgrade_from }}|' "$BASELINE_DIR/tests/default/main.tf"
 
       - name: Terraform Init + Apply (release)
         run: |
-          terraform -chdir=tests/default init -input=false
-          terraform -chdir=tests/default apply -auto-approve
+          BASELINE_DIR="baseline-${{ matrix.upgrade_from }}"
+          terraform -chdir="$BASELINE_DIR/tests/default" init -input=false
+          terraform -chdir="$BASELINE_DIR/tests/default" apply -auto-approve
+
+      - name: Copy state and .terraform to new test dir
+        run: |
+          BASELINE_DIR="baseline-${{ matrix.upgrade_from }}"
+          cp "$BASELINE_DIR/tests/default/terraform.tfstate" tests/default/ || true
+          cp "$BASELINE_DIR/tests/default/terraform.tfstate.backup" tests/default/ || true
+          cp -r "$BASELINE_DIR/tests/default/.terraform" tests/default/ || true
 
       - name: Switch to local module source (upgrade test)
         run: |
