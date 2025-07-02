@@ -42,6 +42,15 @@ jobs:
       - name: Print latest tag
         run: echo "Latest tag is ${{ steps.latest_tag.outputs.tag }}"
 
+      - name: Use released module version
+        run: |
+          sed -i 's|__MODULE_SOURCE__|git::https://github.com/${{ github.repository }}.git//.?ref=${{ steps.latest_tag.outputs.tag }}|' tests/default/main.tf
+
+      - name: Terraform Init + Apply (latest release)
+        run: |
+          terraform -chdir=tests/default init -input=false
+          terraform -chdir=tests/default apply -auto-approve
+
       # - name: Prepare test directory
       #   run: |
       #     cp -r tests/default test-run
