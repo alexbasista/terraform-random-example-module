@@ -53,7 +53,8 @@ jobs:
           echo "EOF" >> $GITHUB_OUTPUT
       
       - name: Print discovered tags
-        run: echo Discovered tags: ${{ steps.get-tags.outputs.tags }}
+        run: |
+          echo "Discovered tags: ${{ steps.get-tags.outputs.tags }}"
 
   upgrade-test:
     needs: discover-tags
