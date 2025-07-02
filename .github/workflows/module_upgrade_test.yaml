@@ -65,7 +65,7 @@ jobs:
           terraform_version: 1.12.2
 
       - name: Print upgrade source
-        run: "echo 'Testing upgrade from: ${{ matrix.upgrade_from }}'"
+        run: echo "Testing upgrade from ${{ matrix.upgrade_from }}"
       
       - name: Use released module version
         run: |
