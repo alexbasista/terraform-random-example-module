@@ -97,24 +97,24 @@ jobs:
           #sed -i 's|__MODULE_SOURCE__|git::https://github.com/${{ github.repository }}.git//.?ref=${{ matrix.upgrade_from }}|' "$BASELINE_DIR/tests/default/main.tf"
           sed -i 's|source = .*|source = "git::https://github.com/${{ github.repository }}.git//.?ref=${{ matrix.upgrade_from }}"|' "$BASELINE_DIR/tests/default/main.tf"
 
-      - name: Terraform Init + Apply (release)
+      - name: Terraform Init + Apply baseline version
         run: |
           BASELINE_DIR="baseline-${{ matrix.upgrade_from }}"
           cat "$BASELINE_DIR/tests/default/main.tf"
           terraform -chdir="$BASELINE_DIR/tests/default" init -input=false
           terraform -chdir="$BASELINE_DIR/tests/default" apply -auto-approve
 
-      - name: Copy state and .terraform to new test dir
+      - name: Copy state and .terraform to target version test dir
         run: |
           BASELINE_DIR="baseline-${{ matrix.upgrade_from }}"
           cp "$BASELINE_DIR/tests/default/terraform.tfstate" tests/default/ || true
           cp -r "$BASELINE_DIR/tests/default/.terraform" tests/default/ || true
 
-      - name: Switch to local module source (upgrade test)
+      - name: Switch to local module source (current branch)
         run: |
           sed -i 's|source = .*|source = "../.."|' tests/default/main.tf
 
-      - name: Terraform Init + Plan (upgrade test)
+      - name: Terraform Init + Plan target version
         run: |
           terraform -chdir=tests/default init -upgrade -input=false
           terraform -chdir=tests/default plan -detailed-exitcode -input=false -out=tfplan
@@ -136,7 +136,7 @@ jobs:
               body: `### Terraform Plan (Upgrade Test from \`${{ matrix.upgrade_from }}\`)\n\`\`\`\n${plan}\n\`\`\``
             });
 
-      - name: Terraform Apply (upgrade test)
+      - name: Terraform Apply target version
         run: |
           terraform -chdir=tests/default apply -input=false tfplan
 
