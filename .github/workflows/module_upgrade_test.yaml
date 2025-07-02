@@ -78,8 +78,10 @@ jobs:
         with:
           terraform_version: ${{ matrix.terraform_version }}
 
-      - name: Print upgrade source
-        run: echo "Testing upgrade from ${{ matrix.upgrade_from }}"
+      - name: Print test details
+        run: |
+          echo "Testing upgrade from module version ${{ matrix.upgrade_from }}"
+          echo "Testing Terraform version ${{ matrix.terraform_version }}"
       
       - name: Use released module version
         run: |
