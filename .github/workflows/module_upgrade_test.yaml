@@ -18,7 +18,7 @@ jobs:
   discover-tags:
     runs-on: ubuntu-latest
     outputs:
-      tags: ${{ steps.set-matrix.outputs.tags }}
+      tags: ${{ steps.get-tags.outputs.tags }}
     steps:
       - name: Checkout repo
         uses: actions/checkout@v4
@@ -51,9 +51,6 @@ jobs:
           echo "tags<<EOF" >> $GITHUB_OUTPUT
           echo "${arr_json}" >> $GITHUB_OUTPUT
           echo "EOF" >> $GITHUB_OUTPUT
-        
-        outputs:
-          tags: ${{ steps.get-tags.outputs.tags }}
 
       # - name: Set tags matrix
       #   id: set-matrix
