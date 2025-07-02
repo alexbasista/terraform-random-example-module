@@ -38,6 +38,12 @@ jobs:
         run: |
           git fetch --tags
           echo "tag=$(git describe --tags --abbrev=0)" >> "$GITHUB_OUTPUT"
+
+      - name: Fail if no tag found
+        if: steps.latest_tag.outputs.tag == 'none'
+        run: |
+          echo "No tags found. Skipping upgrade test."
+          exit 1
       
       - name: Print latest tag
         run: echo "Latest tag is ${{ steps.latest_tag.outputs.tag }}"
@@ -46,7 +52,7 @@ jobs:
         run: |
           sed -i 's|__MODULE_SOURCE__|git::https://github.com/${{ github.repository }}.git//.?ref=${{ steps.latest_tag.outputs.tag }}|' tests/default/main.tf
 
-      - name: Terraform Init + Apply (latest release)
+      - name: Terraform Init + Apply (current latest release)
         run: |
           terraform -chdir=tests/default init -input=false
           terraform -chdir=tests/default apply -auto-approve
@@ -58,7 +64,11 @@ jobs:
       - name: Terraform Init + Plan (upgrade test)
         run: |
           terraform -chdir=tests/default init -upgrade -input=false
-          terraform -chdir=tests/default plan -detailed-exitcode -input=false
+          terraform -chdir=tests/default plan -detailed-exitcode -input=false -out=tfplan
+
+      - name: Terraform Apply (upgrade test)
+        run: |
+          terraform -chdir=tests/default apply -input=false tfplan
 
       - name: Terraform Destroy
         if: always()
