@@ -61,7 +61,7 @@ jobs:
 # --------------------------------------------------------------------------------------------------------------- #
 
   upgrade-test:
-    name: Upgrade test (from: ${{ matrix.upgrade_from }}, TF: ${{ matrix.terraform_version }})
+    name: 'Upgrade test (from: ${{ matrix.upgrade_from }}, TF: ${{ matrix.terraform_version }})'
     needs: discover-tags
     runs-on: ubuntu-latest
     strategy:
