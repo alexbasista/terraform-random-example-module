@@ -6,9 +6,9 @@ Example of calling this module with the `count` meta-argument.
 
 ```hcl
 module "example_module" {
-  count  = 8
-  source = "../.."
-
+  count   = 8
+  source  = "<TFCE_HOSTNAME>/<ORGANIZATION_NAME>/example-module/random"
+  version = "x.x.x"
 
   pet_length     = var.pet_length
   pet_prefix     = var.pet_prefix

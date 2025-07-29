@@ -1,5 +1,6 @@
 module "example_module" {
-  source = "../.."
+  source  = "<TFCE_HOSTNAME>/<ORGANIZATION_NAME>/example-module/random"
+  version = "x.x.x"
 
   pet_length     = var.pet_length
   pet_prefix     = var.pet_prefix

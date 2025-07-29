@@ -6,7 +6,8 @@ Example Terraform module properly structured for publishing to the Terraform Reg
 
 ```hcl
 module "example_module" {
-  source = "../.."
+  source  = "<TFCE_HOSTNAME>/<ORGANIZATION_NAME>/example-module/random"
+  version = "x.x.x"
 
   pet_length     = 3
   pet_prefix     = "test"
