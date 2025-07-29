@@ -62,7 +62,7 @@ jobs:
 # -----------------------------------------------------------------------------------------------
 
   upgrade-test:
-    name: 'Upgrade test (from: ${{ matrix.upgrade_from }}, TF: ${{ matrix.terraform_version }})'
+    name: 'Upgrade test from: ${{ matrix.upgrade_from }}, test_dir: ${{ matrix.test_dirs }}, TF_version: ${{ matrix.terraform_version }})'
     needs: discover-tags
     runs-on: ubuntu-latest
     strategy:
@@ -97,15 +97,11 @@ jobs:
       - name: Update test module source to baseline version
         run: |
           BASELINE_DIR="baseline-${{ matrix.upgrade_from }}"
-          #sed -i 's|source = .*|source = "git::https://github.com/${{ github.repository }}.git//.?ref=${{ matrix.upgrade_from }}"|' "$BASELINE_DIR/tests/default/main.tf"
           sed -i 's|source = .*|source = "git::https://github.com/${{ github.repository }}.git//.?ref=${{ matrix.upgrade_from }}"|' "$BASELINE_DIR/tests/${{ matrix.test_dirs }}/main.tf"
 
       - name: Terraform Init + Apply baseline version
         run: |
           BASELINE_DIR="baseline-${{ matrix.upgrade_from }}"
-          #cat "$BASELINE_DIR/tests/default/main.tf"
-          #terraform -chdir="$BASELINE_DIR/tests/default" init -input=false
-          #terraform -chdir="$BASELINE_DIR/tests/default" apply -auto-approve
           cat "$BASELINE_DIR/tests/${{ matrix.test_dirs }}/main.tf"
           terraform -chdir="$BASELINE_DIR/tests/${{ matrix.test_dirs }}" init -input=false
           terraform -chdir="$BASELINE_DIR/tests/${{ matrix.test_dirs }}" apply -auto-approve
@@ -113,25 +109,19 @@ jobs:
       - name: Copy state and .terraform to target version test dir
         run: |
           BASELINE_DIR="baseline-${{ matrix.upgrade_from }}"
-          #cp "$BASELINE_DIR/tests/default/terraform.tfstate" tests/default/ || true
-          #cp -r "$BASELINE_DIR/tests/default/.terraform" tests/default/ || true
           cp "$BASELINE_DIR/tests/${{ matrix.test_dirs }}/terraform.tfstate" tests/${{ matrix.test_dirs }}/ || true
           cp -r "$BASELINE_DIR/tests/${{ matrix.test_dirs }}/.terraform" tests/${{ matrix.test_dirs }}/ || true
 
       - name: Switch to local module source (current branch)
         run: |
-          #sed -i 's|source = .*|source = "../.."|' tests/default/main.tf
           sed -i 's|source = .*|source = "../.."|' tests/${{ matrix.test_dirs }}/main.tf
 
       - name: Terraform Init + Plan target version
         run: |
-          #terraform -chdir=tests/default init -upgrade -input=false
-          #terraform -chdir=tests/default plan -detailed-exitcode -input=false -out=tfplan
           terraform -chdir=tests/${{ matrix.test_dirs }} init -upgrade -input=false
           terraform -chdir=tests/${{ matrix.test_dirs }} plan -detailed-exitcode -input=false -out=tfplan
 
       - name: Save Terraform Plan Output
-        #run: terraform -chdir=tests/default show -no-color tfplan > plan.txt
         run: |
           terraform -chdir=tests/${{ matrix.test_dirs }} show -no-color tfplan > plan.txt
 
@@ -151,11 +141,9 @@ jobs:
 
       - name: Terraform Apply target version
         run: |
-          #terraform -chdir=tests/default apply -input=false tfplan
           terraform -chdir=tests/${{ matrix.test_dirs }} apply -input=false tfplan
 
       - name: Terraform Destroy
         if: always()
         run: |
-          #terraform -chdir=tests/default destroy -auto-approve
           terraform -chdir=tests/${{ matrix.test_dirs }} destroy -auto-approve
