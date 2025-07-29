@@ -1,5 +1,11 @@
+# Usage Example 1
+
+Default example of calling this module.
+
+## Usage
+
+```hcl
 module "example_module" {
-  count  = 3
   source = "../.."
 
   pet_length     = var.pet_length
@@ -7,3 +13,4 @@ module "example_module" {
   pet_separator  = var.pet_separator
   trigger_change = var.trigger_change
 }
+```
