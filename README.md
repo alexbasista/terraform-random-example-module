@@ -34,7 +34,10 @@ module "example_module" {
 
 | Name | Type |
 |------|------|
-| [random_pet.example](https://registry.terraform.io/providers/hashicorp/random/latest/docs/resources/pet) | resource |
+| [random_pet.example_1](https://registry.terraform.io/providers/hashicorp/random/latest/docs/resources/pet) | resource |
+| [random_pet.example_2](https://registry.terraform.io/providers/hashicorp/random/latest/docs/resources/pet) | resource |
+| [random_pet.example_3](https://registry.terraform.io/providers/hashicorp/random/latest/docs/resources/pet) | resource |
+| [random_pet.example_4](https://registry.terraform.io/providers/hashicorp/random/latest/docs/resources/pet) | resource |
 
 ## Inputs
 
@@ -49,5 +52,8 @@ module "example_module" {
 
 | Name | Description |
 |------|-------------|
-| <a name="output_random_pet_id"></a> [random\_pet\_id](#output\_random\_pet\_id) | ID (name) of the random pet. |
+| <a name="output_random_pet_id_1"></a> [random\_pet\_id\_1](#output\_random\_pet\_id\_1) | ID (name) of the random pet 1. |
+| <a name="output_random_pet_id_2"></a> [random\_pet\_id\_2](#output\_random\_pet\_id\_2) | ID (name) of the random pet 2. |
+| <a name="output_random_pet_id_3"></a> [random\_pet\_id\_3](#output\_random\_pet\_id\_3) | ID (name) of the random pet 3. |
+| <a name="output_random_pet_id_4"></a> [random\_pet\_id\_4](#output\_random\_pet\_id\_4) | ID (name) of the random pet 4. |
 <!-- END_TF_DOCS -->

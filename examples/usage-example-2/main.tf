@@ -1,12 +1,5 @@
-# Example - Count
-
-Example of calling this module using the `count` meta-argument.
-
-## Usage
-
-```hcl
 module "example_module" {
-  count  = 3
+  count  = 8
   source = "../.."
 
   pet_length     = var.pet_length
@@ -14,4 +7,3 @@ module "example_module" {
   pet_separator  = var.pet_separator
   trigger_change = var.trigger_change
 }
-```
