@@ -4,6 +4,7 @@ name: Module Build and Release
 on:
   pull_request:
     branches: [main]
+    paths: [versions.txt]
   workflow_dispatch:
 
 env:
