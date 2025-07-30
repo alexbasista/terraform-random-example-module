@@ -34,7 +34,11 @@ jobs:
         run: |
           set -e
           git fetch --tags
-          tags=$(git tag -l 'v[0-9]*.[0-9]*.[0-9]*' | grep -Ev -- '-')
+          tags=$(git tag -l 'v[0-9]*.[0-9]*.[0-9]*' | grep -Ev -- '-' || true)
+          if [ -z "$tags" ]; then
+            echo "::error::No semver tags found in the repository. At least one tag like v1.2.3 is required."
+            exit 1
+          fi
           sorted_tags=$(echo "$tags" | sort -V)
           major_versions=$(echo "$sorted_tags" | sed -E 's/^v([0-9]+)\..*/\1/' | sort -nr | uniq)
           current_major=$(echo "$major_versions" | head -n1 || true)
