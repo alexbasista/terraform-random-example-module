@@ -75,6 +75,8 @@ jobs:
     env:
       TF_TOKEN_app_terraform_io: ${{ secrets.TF_TOKEN_APP_TERRAFORM_IO }}
     strategy:
+      fail-fast: false
+      max-parallel: 1
       matrix:
         upgrade_from: ${{ fromJson(needs.discover-tags.outputs.tags) }}
         terraform_version: [1.12.2] # Add more versions as needed
