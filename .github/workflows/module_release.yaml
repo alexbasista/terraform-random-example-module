@@ -36,6 +36,11 @@ jobs:
             echo "skip=false" >> $GITHUB_OUTPUT
           fi
 
+      - name: (PLACEHOLDER) Check if version already exists in registry
+        id: registry_check
+        run: |
+          echo "Calling Terraform Registry API to check if version exists..."
+
       - name: Create and push Git tag
         if: steps.tag_check.outputs.skip == 'false'
         run: |
