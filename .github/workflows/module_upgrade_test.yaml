@@ -1,4 +1,4 @@
-# .github/workflows/terraform-upgrade-test.yml
+# .github/workflows/module_upgrade_test.yml
 name: Terraform Module Upgrade Test
 
 on:
