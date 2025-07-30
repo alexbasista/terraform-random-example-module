@@ -1,11 +1,10 @@
-/*
 terraform {
   cloud {
-    organization = "<my-organization>"
+    organization = "abasista-tfc"
 
     workspaces {
-      name = "<integration-test-2>"
+      name    = "random-example-module-test-2"
+      project = "tf-module-ci"
     }
   }
 }
-*/
