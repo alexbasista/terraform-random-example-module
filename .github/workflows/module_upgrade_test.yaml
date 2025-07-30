@@ -11,13 +11,15 @@ on:
       - 'tests/**'
       - 'examples/**'
 
-env:
-  INCLUDE_PREVIOUS_MAJOR_VERSION: true # set to false to skip N-1 major version test
-
+# -------------------------------------
+# Job: Discover semver tags
+# -------------------------------------
 jobs:
   discover-tags:
     name: Discover semver tags
     runs-on: ubuntu-latest
+    env:
+      INCLUDE_PREVIOUS_MAJOR_VERSION: true # set to false to skip N-1 major version test
     outputs:
       tags: ${{ steps.get-tags.outputs.tags }}
     steps:
@@ -59,12 +61,15 @@ jobs:
         run: |
           echo "Discovered tags: ${{ steps.get-tags.outputs.tags }}"
 
-# -----------------------------------------------------------------------------------------------
-
+# -------------------------------------
+# Job: Upgrade test matrix
+# -------------------------------------
   upgrade-test:
     name: 'Upgrade test from: ${{ matrix.upgrade_from }}, test_dir: ${{ matrix.test_dirs }}, TF_version: ${{ matrix.terraform_version }})'
     needs: discover-tags
     runs-on: ubuntu-latest
+    env:
+      TF_TOKEN_app_terraform_io: ${{ secrets.TF_TOKEN_APP_TERRAFORM_IO }}
     strategy:
       matrix:
         upgrade_from: ${{ fromJson(needs.discover-tags.outputs.tags) }}
@@ -83,8 +88,8 @@ jobs:
 
       - name: Print test details
         run: |
-          echo "Testing upgrade from module version ${{ matrix.upgrade_from }}"
-          echo "Testing Terraform version ${{ matrix.terraform_version }}"
+          echo "Testing upgrade from module version ${{ matrix.upgrade_from }}."
+          echo "Testing Terraform version ${{ matrix.terraform_version }}."
       
       - name: Checkout baseline module version (upgrade_from)
         run: |
@@ -94,7 +99,7 @@ jobs:
           git checkout "${{ matrix.upgrade_from }}"
           ls -l
 
-      - name: Update test module source to baseline version
+      - name: Update module source to baseline version
         run: |
           BASELINE_DIR="baseline-${{ matrix.upgrade_from }}"
           sed -i 's|source = .*|source = "git::https://github.com/${{ github.repository }}.git//.?ref=${{ matrix.upgrade_from }}"|' "$BASELINE_DIR/tests/${{ matrix.test_dirs }}/main.tf"
@@ -106,11 +111,11 @@ jobs:
           terraform -chdir="$BASELINE_DIR/tests/${{ matrix.test_dirs }}" init -input=false
           terraform -chdir="$BASELINE_DIR/tests/${{ matrix.test_dirs }}" apply -auto-approve
 
-      - name: Copy state and .terraform to target version test dir
-        run: |
-          BASELINE_DIR="baseline-${{ matrix.upgrade_from }}"
-          cp "$BASELINE_DIR/tests/${{ matrix.test_dirs }}/terraform.tfstate" tests/${{ matrix.test_dirs }}/ || true
-          cp -r "$BASELINE_DIR/tests/${{ matrix.test_dirs }}/.terraform" tests/${{ matrix.test_dirs }}/ || true
+      # - name: Copy state and .terraform to target version test dir
+      #   run: |
+      #     BASELINE_DIR="baseline-${{ matrix.upgrade_from }}"
+      #     cp "$BASELINE_DIR/tests/${{ matrix.test_dirs }}/terraform.tfstate" tests/${{ matrix.test_dirs }}/ || true
+      #     cp -r "$BASELINE_DIR/tests/${{ matrix.test_dirs }}/.terraform" tests/${{ matrix.test_dirs }}/ || true
 
       - name: Switch to local module source (current branch)
         run: |
