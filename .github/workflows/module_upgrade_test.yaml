@@ -9,6 +9,7 @@ on:
       - '*.tf'
       - 'tests/**/*.tf'
       - 'tests/**/*.tfvars'
+      - 'VERSION'
 
 permissions:
   contents: read
