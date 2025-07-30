@@ -36,7 +36,7 @@ jobs:
           git fetch --tags
           tags=$(git tag -l 'v[0-9]*.[0-9]*.[0-9]*' | grep -Ev -- '-' || true)
           if [ -z "$tags" ]; then
-            echo "::error::No semver tags found in the repository. At least one tag like v1.2.3 is required."
+            echo "::error::No semantic version tags found in the repository. At least one tag like v1.2.3 is required."
             exit 1
           fi
           sorted_tags=$(echo "$tags" | sort -V)
