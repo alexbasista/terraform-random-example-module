@@ -1,22 +1,25 @@
-# .github/workflows/terraform-upgrade-test.yml
+# .github/workflows/module_upgrade_test.yml
 name: Terraform Module Upgrade Test
 
 on:
   workflow_dispatch:
   pull_request:
+    branches: [main]
     paths:
-      - '**.tf'
-      - '**.tfvars'
-      - '**.yml'
-      - 'tests/**'
-      - 'examples/**'
+      - '*.tf'
+      - 'tests/**/*.tf'
+      - 'tests/**/*.tfvars'
+
+permissions:
+  contents: read
+  pull-requests: write
 
 # -------------------------------------
 # Job: Discover semver tags
 # -------------------------------------
 jobs:
   discover-tags:
-    name: Discover semver tags
+    name: Discover semantic version tags
     runs-on: ubuntu-latest
     env:
       INCLUDE_PREVIOUS_MAJOR_VERSION: true # set to false to skip N-1 major version test
@@ -34,7 +37,11 @@ jobs:
         run: |
           set -e
           git fetch --tags
-          tags=$(git tag -l 'v[0-9]*.[0-9]*.[0-9]*' | grep -Ev -- '-')
+          tags=$(git tag -l 'v[0-9]*.[0-9]*.[0-9]*' | grep -Ev -- '-' || true)
+          if [ -z "$tags" ]; then
+            echo "::error::No semantic version tags found in the repository. At least one tag like v1.2.3 is required."
+            exit 1
+          fi
           sorted_tags=$(echo "$tags" | sort -V)
           major_versions=$(echo "$sorted_tags" | sed -E 's/^v([0-9]+)\..*/\1/' | sort -nr | uniq)
           current_major=$(echo "$major_versions" | head -n1 || true)
@@ -71,10 +78,12 @@ jobs:
     env:
       TF_TOKEN_app_terraform_io: ${{ secrets.TF_TOKEN_APP_TERRAFORM_IO }}
     strategy:
+      fail-fast: false
+      max-parallel: 1
       matrix:
+        test_dirs: [integration-test-1, integration-test-2] # Add more test directories as needed
         upgrade_from: ${{ fromJson(needs.discover-tags.outputs.tags) }}
         terraform_version: [1.12.2] # Add more versions as needed
-        test_dirs: [integration-test-1, integration-test-2] # Add more test directories as needed
     steps:
       - name: Checkout repo
         uses: actions/checkout@v4
@@ -111,6 +120,7 @@ jobs:
           terraform -chdir="$BASELINE_DIR/tests/${{ matrix.test_dirs }}" init -input=false
           terraform -chdir="$BASELINE_DIR/tests/${{ matrix.test_dirs }}" apply -auto-approve
 
+      # needed for Terraform Community Edition where the statefile is local to the GitHub runner
       # - name: Copy state and .terraform to target version test dir
       #   run: |
       #     BASELINE_DIR="baseline-${{ matrix.upgrade_from }}"
@@ -122,9 +132,11 @@ jobs:
           sed -i 's|source = .*|source = "../.."|' tests/${{ matrix.test_dirs }}/main.tf
 
       - name: Terraform Init + Plan target version
+        id: plan_target_version
         run: |
           terraform -chdir=tests/${{ matrix.test_dirs }} init -upgrade -input=false
-          terraform -chdir=tests/${{ matrix.test_dirs }} plan -detailed-exitcode -input=false -out=tfplan
+          terraform -chdir=tests/${{ matrix.test_dirs }} plan -detailed-exitcode -input=false -out=tfplan || exit_code=$?
+          echo "exit_code=${exit_code:-0}" >> "$GITHUB_OUTPUT"
 
       - name: Save Terraform Plan Output
         run: |
@@ -145,6 +157,7 @@ jobs:
             });
 
       - name: Terraform Apply target version
+        if: steps.plan_target_version.outputs.exit_code == '2'
         run: |
           terraform -chdir=tests/${{ matrix.test_dirs }} apply -input=false tfplan
 
