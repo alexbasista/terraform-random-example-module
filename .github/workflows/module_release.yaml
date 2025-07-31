@@ -25,6 +25,7 @@ jobs:
         run: |
           TARGET_VERSION=$(cat VERSION)
           echo "target_version=$TARGET_VERSION" >> $GITHUB_OUTPUT
+          echo "Found target version: $TARGET_VERSION"
 
       - name: Check if tag already exists
         id: tag_check
@@ -44,6 +45,7 @@ jobs:
       - name: Create and push Git tag
         if: steps.tag_check.outputs.skip == 'false'
         run: |
+          echo "Creating and pushing tag v${{ steps.read_version.outputs.target_version }}."
           git config user.name "GitHub Actions"
           git config user.email "actions@github.com"
           git tag "v${{ steps.read_version.outputs.target_version }}"
@@ -53,5 +55,5 @@ jobs:
       - name: (PLACEHOLDER) Publish to Terraform Registry
         if: steps.tag_check.outputs.skip == 'false'
         run: |
-          echo "Publishing version v${{ steps.version.outputs.version }}..."
+          echo "Publishing version v${{ steps.read_version.outputs.target_version }}..."
           # Add your publish logic here
