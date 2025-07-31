@@ -163,7 +163,8 @@ jobs:
               issue_number: context.issue.number,
               owner: context.repo.owner,
               repo: context.repo.repo,
-              body: `### Terraform Plan (Upgrade Test from \`${{ matrix.upgrade_from }}\`)\n\`\`\`\n${plan}\n\`\`\``
+              body: `### Terraform Plan (Upgrade Test from \`${{ matrix.upgrade_from }}\`, test_dir: \`${{ matrix.test_dir }}\`)\n\`\`\`\n${plan}\n\`\`\``
+
             });
 
       - name: Terraform Apply target version
