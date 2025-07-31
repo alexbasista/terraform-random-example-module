@@ -71,10 +71,11 @@ jobs:
           echo "tags<<EOF" >> $GITHUB_OUTPUT
           echo "${arr_json}" >> $GITHUB_OUTPUT
           echo "EOF" >> $GITHUB_OUTPUT
+          echo "Discovered tags: ${arr_json}"
       
-      - name: Print discovered tags
-        run: |
-          echo "Discovered tags: ${{ steps.get-tags.outputs.tags }}"
+      # - name: Print discovered tags
+      #   run: |
+      #     echo "Discovered tags: ${{ steps.get-tags.outputs.tags }}"
 
 # -------------------------------------
 # Job: Upgrade test matrix
