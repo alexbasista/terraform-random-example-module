@@ -26,6 +26,7 @@ jobs:
     env:
       INCLUDE_PREVIOUS_MAJOR_VERSION: true # set to false to skip N-1 major version test
     outputs:
+      has_tags: ${{ steps.get-tags.outputs.has_tags }}
       tags: ${{ steps.get-tags.outputs.tags }}
     steps:
       - name: Checkout repo
@@ -41,8 +42,12 @@ jobs:
           git fetch --tags
           tags=$(git tag -l 'v[0-9]*.[0-9]*.[0-9]*' | grep -Ev -- '-' || true)
           if [ -z "$tags" ]; then
-            echo "::error::No semantic version tags found in the repository. At least one tag like v1.2.3 is required."
-            exit 1
+            echo "No semantic version tags found. Skipping upgrade test."
+            echo "tags<<EOF" >> $GITHUB_OUTPUT
+            echo "[]" >> $GITHUB_OUTPUT
+            echo "EOF" >> $GITHUB_OUTPUT
+            echo "has_tags=false" >> $GITHUB_OUTPUT
+            exit 0
           fi
           sorted_tags=$(echo "$tags" | sort -V)
           major_versions=$(echo "$sorted_tags" | sed -E 's/^v([0-9]+)\..*/\1/' | sort -nr | uniq)
@@ -62,6 +67,7 @@ jobs:
             [ -n "$prev_major_tag" ] && arr+=("$prev_major_tag")
           fi
           arr_json=$(printf '%s\n' "${arr[@]}" | jq -R . | jq -s -c .)
+          echo "has_tags=true" >> $GITHUB_OUTPUT
           echo "tags<<EOF" >> $GITHUB_OUTPUT
           echo "${arr_json}" >> $GITHUB_OUTPUT
           echo "EOF" >> $GITHUB_OUTPUT
@@ -74,8 +80,9 @@ jobs:
 # Job: Upgrade test matrix
 # -------------------------------------
   upgrade-test:
-    name: 'Upgrade test from: ${{ matrix.upgrade_from }}, test_dir: ${{ matrix.test_dirs }}, TF_version: ${{ matrix.terraform_version }})'
+    name: 'Upgrade test from: ${{ matrix.upgrade_from }}, test_dir: ${{ matrix.test_dirs }}'
     needs: discover-tags
+    if: needs.discover-tags.outputs.has_tags == 'true'
     runs-on: ubuntu-latest
     env:
       TF_TOKEN_app_terraform_io: ${{ secrets.TF_TOKEN_APP_TERRAFORM_IO }}
@@ -83,9 +90,9 @@ jobs:
       fail-fast: false
       max-parallel: 1
       matrix:
-        test_dirs: [integration-test-1, integration-test-2] # Add more test directories as needed
+        test_dirs: [integration-test-1, integration-test-2]
         upgrade_from: ${{ fromJson(needs.discover-tags.outputs.tags) }}
-        terraform_version: [1.12.2] # Add more versions as needed
+        terraform_version: [1.12.2]
     steps:
       - name: Checkout repo
         uses: actions/checkout@v4
