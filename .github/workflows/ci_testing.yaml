@@ -1,5 +1,5 @@
-# .github/workflows/module_upgrade_test.yaml
-name: Terraform Module Upgrade Test
+# .github/workflows/ci_testing.yaml
+name: Terraform Module CI Test
 
 on:
   workflow_dispatch:
