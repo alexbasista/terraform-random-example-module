@@ -79,7 +79,7 @@ jobs:
 # Job: Upgrade test for each version
 # -------------------------------------
   upgrade-test:
-    name: 'Upgrade test from: ${{ matrix.upgrade_from }}'
+    name: 'Upgrade test from: ${{ matrix.upgrade_from_version }}'
     needs: discover-tags
     if: needs.discover-tags.outputs.has_tags == 'true'
     runs-on: ubuntu-latest
@@ -90,7 +90,7 @@ jobs:
       fail-fast: false
       max-parallel: 1  # Sequential execution since all jobs target the same TFC workspace
       matrix:
-        upgrade_from: ${{ fromJson(needs.discover-tags.outputs.tags) }}
+        upgrade_from_version: ${{ fromJson(needs.discover-tags.outputs.tags) }}
     steps:
       - name: Checkout repo
         uses: actions/checkout@v4
@@ -107,27 +107,27 @@ jobs:
           echo "========================================="
           echo "🚀 TERRAFORM MODULE UPGRADE TEST"
           echo "========================================="
-          echo "📦 Upgrade from: ${{ matrix.upgrade_from }}"
+          echo "📦 Upgrade from: ${{ matrix.upgrade_from_version }}"
           echo "📁 Test directory: ${{ env.TEST_DIR }}"
           echo "🔧 Terraform version: ${{ env.LOCAL_TF_VERSION }} (ensure your remote workspace is configured accordingly)"
           echo "========================================="
       
       - name: Checkout baseline module version (upgrade_from)
         run: |
-          BASELINE_DIR="baseline-${{ matrix.upgrade_from }}"
+          BASELINE_DIR="baseline-${{ matrix.upgrade_from_version }}"
           git clone . "$BASELINE_DIR"
           cd "$BASELINE_DIR"
-          git checkout "${{ matrix.upgrade_from }}"
+          git checkout "${{ matrix.upgrade_from_version }}"
           ls -l
 
       - name: Update module source to baseline version
         run: |
-          BASELINE_DIR="baseline-${{ matrix.upgrade_from }}"
-          sed -i 's|source = .*|source = "git::https://github.com/${{ github.repository }}.git//.?ref=${{ matrix.upgrade_from }}"|' "$BASELINE_DIR/tests/${{ env.TEST_DIR }}/main.tf"
+          BASELINE_DIR="baseline-${{ matrix.upgrade_from_version }}"
+          sed -i 's|source = .*|source = "git::https://github.com/${{ github.repository }}.git//.?ref=${{ matrix.upgrade_from_version }}"|' "$BASELINE_DIR/tests/${{ env.TEST_DIR }}/main.tf"
 
       - name: Terraform Init + Apply baseline version
         run: |
-          BASELINE_DIR="baseline-${{ matrix.upgrade_from }}"
+          BASELINE_DIR="baseline-${{ matrix.upgrade_from_version }}"
           cat "$BASELINE_DIR/tests/${{ env.TEST_DIR }}/main.tf"
           terraform -chdir="$BASELINE_DIR/tests/${{ env.TEST_DIR }}" init -input=false
           terraform -chdir="$BASELINE_DIR/tests/${{ env.TEST_DIR }}" apply -auto-approve
@@ -139,11 +139,9 @@ jobs:
       - name: Terraform Init + Plan target version
         id: plan_target_version
         run: |
-          terraform -chdir=tests/${{ env.TEST_DIR }} init -upgrade -input=false
-          terraform -chdir=tests/${{ env.TEST_DIR }} plan -detailed-exitcode -input=false -out=tfplan
-          exit_code=$?
-          echo "exit_code=$exit_code" >> "$GITHUB_OUTPUT"
-          echo "Plan exit code: $exit_code"
+          terraform -chdir=tests/${{ matrix.test_dirs }} init -upgrade -input=false
+          terraform -chdir=tests/${{ matrix.test_dirs }} plan -detailed-exitcode -input=false -out=tfplan || exit_code=$?
+          echo "exit_code=${exit_code:-0}" >> "$GITHUB_OUTPUT"
 
       - name: Save Terraform Plan Output
         run: |
@@ -160,7 +158,7 @@ jobs:
               issue_number: context.issue.number,
               owner: context.repo.owner,
               repo: context.repo.repo,
-              body: `### Terraform Plan (Upgrade Test from \`${{ matrix.upgrade_from }}\`)\n\`\`\`\n${plan}\n\`\`\``
+              body: `### Terraform Plan (Upgrade Test from \`${{ matrix.upgrade_from_version }}\`)\n\`\`\`\n${plan}\n\`\`\``
             });
 
       - name: Terraform Apply target version
