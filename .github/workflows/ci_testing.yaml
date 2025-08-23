@@ -140,6 +140,7 @@ jobs:
         id: plan_target_version
         run: |
           exit_code=0
+          terraform -chdir=tests/${{ env.TEST_DIR }} init -upgrade -input=false
           terraform -chdir=tests/${{ env.TEST_DIR }} plan -detailed-exitcode -input=false -out=tfplan || exit_code=$?
           echo "exit_code=$exit_code" >> "$GITHUB_OUTPUT"
           echo "Plan exit code: $exit_code"
