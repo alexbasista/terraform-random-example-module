@@ -16,7 +16,7 @@ permissions:
   pull-requests: write
 
 env:
-  TF_VERSION: "1.12.2"
+  LOCAL_TF_VERSION: "1.12.2"
 
 jobs:
 # -------------------------------------
@@ -100,7 +100,7 @@ jobs:
       - name: Set up Terraform
         uses: hashicorp/setup-terraform@v3
         with:
-          terraform_version: ${{ env.TF_VERSION }}
+          terraform_version: ${{ env.LOCAL_TF_VERSION }}
 
       - name: Print test details
         run: |
@@ -109,7 +109,7 @@ jobs:
           echo "========================================="
           echo "📦 Upgrade from: ${{ matrix.upgrade_from }}"
           echo "📁 Test directory: ${{ env.TEST_DIR }}"
-          echo "🔧 Terraform version: ${{ env.TF_VERSION }} (ensure your remote workspace is configured accordingly)"
+          echo "🔧 Terraform version: ${{ env.LOCAL_TF_VERSION }} (ensure your remote workspace is configured accordingly)"
           echo "========================================="
       
       - name: Checkout baseline module version (upgrade_from)
@@ -139,9 +139,10 @@ jobs:
       - name: Terraform Init + Plan target version
         id: plan_target_version
         run: |
-          terraform -chdir=tests/${{ env.TEST_DIR }} init -upgrade -input=false
+          exit_code=0
           terraform -chdir=tests/${{ env.TEST_DIR }} plan -detailed-exitcode -input=false -out=tfplan || exit_code=$?
-          echo "exit_code=${exit_code:-0}" >> "$GITHUB_OUTPUT"
+          echo "exit_code=$exit_code" >> "$GITHUB_OUTPUT"
+          echo "Plan exit code: $exit_code"
 
       - name: Save Terraform Plan Output
         run: |
