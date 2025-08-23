@@ -109,7 +109,7 @@ jobs:
           echo "========================================="
           echo "📦 Upgrade from: ${{ matrix.upgrade_from }}"
           echo "📁 Test directory: ${{ env.TEST_DIR }}"
-          echo "🔧 Terraform version: ${{ env.TF_VERSION }}" (ensure your workspace is configured accordingly)
+          echo "🔧 Terraform version: ${{ env.TF_VERSION }} (ensure your remote workspace is configured accordingly)"
           echo "========================================="
       
       - name: Checkout baseline module version (upgrade_from)
