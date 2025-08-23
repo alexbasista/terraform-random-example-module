@@ -139,8 +139,8 @@ jobs:
       - name: Terraform Init + Plan target version
         id: plan_target_version
         run: |
-          terraform -chdir=tests/${{ matrix.test_dirs }} init -upgrade -input=false
-          terraform -chdir=tests/${{ matrix.test_dirs }} plan -detailed-exitcode -input=false -out=tfplan || exit_code=$?
+          terraform -chdir=tests/${{ env.TEST_DIR }} init -upgrade -input=false
+          terraform -chdir=tests/${{ env.TEST_DIR }} plan -detailed-exitcode -input=false -out=tfplan || exit_code=$?
           echo "exit_code=${exit_code:-0}" >> "$GITHUB_OUTPUT"
 
       - name: Save Terraform Plan Output
