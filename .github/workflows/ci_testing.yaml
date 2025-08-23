@@ -162,8 +162,12 @@ jobs:
             });
 
       - name: Terraform Apply target version
-        if: steps.plan_target_version.outputs.exit_code == '2'
+        #if: steps.plan_target_version.outputs.exit_code == '2'
+        if: always()
         run: |
+          echo "Exit code from plan step: '${{ steps.plan_target_version.outputs.exit_code }}'"
+          echo "Is it equal to '2'? ${{ steps.plan_target_version.outputs.exit_code == '2' }}"
+          echo "Is it equal to 2? ${{ steps.plan_target_version.outputs.exit_code == 2 }}"
           terraform -chdir=tests/${{ env.TEST_DIR }} apply -input=false tfplan
 
       - name: Terraform Destroy
