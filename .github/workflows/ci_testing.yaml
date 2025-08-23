@@ -85,7 +85,6 @@ jobs:
     runs-on: ubuntu-latest
     env:
       TF_TOKEN_app_terraform_io: ${{ secrets.TF_TOKEN_APP_TERRAFORM_IO }}
-      OLD_TEST_DIR: integration-test-1
       TEST_DIR: integration-test
     strategy:
       fail-fast: false
@@ -124,14 +123,14 @@ jobs:
       - name: Update module source to baseline version
         run: |
           BASELINE_DIR="baseline-${{ matrix.upgrade_from }}"
-          sed -i 's|source = .*|source = "git::https://github.com/${{ github.repository }}.git//.?ref=${{ matrix.upgrade_from }}"|' "$BASELINE_DIR/tests/${{ env.OLD_TEST_DIR }}/main.tf"
+          sed -i 's|source = .*|source = "git::https://github.com/${{ github.repository }}.git//.?ref=${{ matrix.upgrade_from }}"|' "$BASELINE_DIR/tests/${{ env.TEST_DIR }}/main.tf"
 
       - name: Terraform Init + Apply baseline version
         run: |
           BASELINE_DIR="baseline-${{ matrix.upgrade_from }}"
-          cat "$BASELINE_DIR/tests/${{ env.OLD_TEST_DIR }}/main.tf"
-          terraform -chdir="$BASELINE_DIR/tests/${{ env.OLD_TEST_DIR }}" init -input=false
-          terraform -chdir="$BASELINE_DIR/tests/${{ env.OLD_TEST_DIR }}" apply -auto-approve
+          cat "$BASELINE_DIR/tests/${{ env.TEST_DIR }}/main.tf"
+          terraform -chdir="$BASELINE_DIR/tests/${{ env.TEST_DIR }}" init -input=false
+          terraform -chdir="$BASELINE_DIR/tests/${{ env.TEST_DIR }}" apply -auto-approve
 
       - name: Switch to local module source (current branch)
         run: |
