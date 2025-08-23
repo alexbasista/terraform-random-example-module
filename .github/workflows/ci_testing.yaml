@@ -1,0 +1,202 @@
+# .github/workflows/ci_testing.yaml
+name: Terraform Module CI
+
+on:
+  workflow_dispatch:
+  pull_request:
+    branches: [main]
+    paths:
+      - '*.tf'
+      - 'tests/**/*.tf'
+      - 'tests/**/*.tfvars'
+      - 'VERSION'
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+# -------------------------------------
+# Job: Discover semantic version tags
+# -------------------------------------
+  discover-tags:
+    name: Discover semantic version tags
+    runs-on: ubuntu-latest
+    env:
+      INCLUDE_PREVIOUS_MAJOR_VERSION: true # set to false to skip N-1 major version test
+    outputs:
+      has_tags: ${{ steps.get-tags.outputs.has_tags }}
+      tags: ${{ steps.get-tags.outputs.tags }}
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Get latest semver tags
+        id: get-tags
+        shell: bash
+        run: |
+          set -e
+          git fetch --tags
+          tags=$(git tag -l 'v[0-9]*.[0-9]*.[0-9]*' | grep -Ev -- '-' || true)
+          if [ -z "$tags" ]; then
+            echo "No semantic version tags found. Skipping upgrade test."
+            echo "tags<<EOF" >> $GITHUB_OUTPUT
+            echo "[]" >> $GITHUB_OUTPUT
+            echo "EOF" >> $GITHUB_OUTPUT
+            echo "has_tags=false" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+          sorted_tags=$(echo "$tags" | sort -V)
+          major_versions=$(echo "$sorted_tags" | sed -E 's/^v([0-9]+)\..*/\1/' | sort -nr | uniq)
+          current_major=$(echo "$major_versions" | head -n1 || true)
+          prev_major=$(echo "$major_versions" | sed -n 2p || true)
+          latest_tag=""
+          prev_major_tag=""
+          if [ -n "$current_major" ]; then
+            latest_tag=$(echo "$sorted_tags" | grep "^v${current_major}\." | tail -n1 || true)
+          fi
+          if [ -n "$prev_major" ]; then
+            prev_major_tag=$(echo "$sorted_tags" | grep "^v${prev_major}\." | tail -n1 || true)
+          fi
+          arr=()
+          [ -n "$latest_tag" ] && arr+=("$latest_tag")
+          if [[ "${INCLUDE_PREVIOUS_MAJOR_VERSION}" == "true" ]]; then
+            [ -n "$prev_major_tag" ] && arr+=("$prev_major_tag")
+          fi
+          arr_json=$(printf '%s\n' "${arr[@]}" | jq -R . | jq -s -c .)
+          echo "has_tags=true" >> $GITHUB_OUTPUT
+          echo "tags<<EOF" >> $GITHUB_OUTPUT
+          echo "${arr_json}" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+          echo "Discovered tags: ${arr_json}"
+
+# -------------------------------------
+# Job: Upgrade test - one job per test_dir
+# -------------------------------------
+  upgrade-test:
+    name: 'Upgrade tests for: ${{ matrix.test_dirs }}'
+    needs: discover-tags
+    if: needs.discover-tags.outputs.has_tags == 'true'
+    runs-on: ubuntu-latest
+    env:
+      TF_TOKEN_app_terraform_io: ${{ secrets.TF_TOKEN_APP_TERRAFORM_IO }}
+    strategy:
+      fail-fast: false
+      matrix:
+        test_dirs: [integration-test-1, integration-test-2]  # This can run in parallel
+        terraform_version: [1.12.2]
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ matrix.terraform_version }}
+
+      - name: Run upgrade tests sequentially for each version
+        env:
+          TEST_DIR: ${{ matrix.test_dirs }}
+          UPGRADE_FROM_TAGS: ${{ needs.discover-tags.outputs.tags }}
+        run: |
+          echo "Running upgrade tests for test directory: $TEST_DIR"
+          echo "Available upgrade versions: $UPGRADE_FROM_TAGS"
+          
+          # Convert JSON array to bash array
+          upgrade_versions=($(echo '${{ needs.discover-tags.outputs.tags }}' | jq -r '.[]'))
+          
+          for upgrade_from in "${upgrade_versions[@]}"; do
+            echo "========================================="
+            echo "Testing upgrade from: $upgrade_from"
+            echo "Test directory: $TEST_DIR"
+            echo "========================================="
+            
+            # Checkout baseline module version
+            BASELINE_DIR="baseline-$upgrade_from"
+            echo "Creating baseline directory: $BASELINE_DIR"
+            git clone . "$BASELINE_DIR"
+            cd "$BASELINE_DIR"
+            git checkout "$upgrade_from"
+            cd ..
+            
+            # Update module source to baseline version
+            echo "Updating module source to baseline version"
+            sed -i "s|source = .*|source = \"git::https://github.com/${{ github.repository }}.git//.?ref=$upgrade_from\"|" "$BASELINE_DIR/tests/$TEST_DIR/main.tf"
+            
+            # Show what we're about to apply
+            echo "Baseline main.tf content:"
+            cat "$BASELINE_DIR/tests/$TEST_DIR/main.tf"
+            
+            # Apply baseline version
+            echo "Applying baseline version..."
+            terraform -chdir="$BASELINE_DIR/tests/$TEST_DIR" init -input=false
+            terraform -chdir="$BASELINE_DIR/tests/$TEST_DIR" apply -auto-approve
+            
+            # Switch to local module source (current branch)
+            echo "Switching to local module source"
+            sed -i 's|source = .*|source = "../.."|' "tests/$TEST_DIR/main.tf"
+            
+            # Plan upgrade to target version
+            echo "Planning upgrade to target version..."
+            terraform -chdir="tests/$TEST_DIR" init -upgrade -input=false
+            
+            # Run plan and capture exit code
+            plan_exit_code=0
+            terraform -chdir="tests/$TEST_DIR" plan -detailed-exitcode -input=false -out="tfplan-$upgrade_from" || plan_exit_code=$?
+            
+            # Save plan output for potential PR comment
+            terraform -chdir="tests/$TEST_DIR" show -no-color "tfplan-$upgrade_from" > "plan-$upgrade_from.txt"
+            
+            # Apply if there are changes
+            if [ $plan_exit_code -eq 2 ]; then
+              echo "Changes detected, applying..."
+              terraform -chdir="tests/$TEST_DIR" apply -input=false "tfplan-$upgrade_from"
+            else
+              echo "No changes detected (exit code: $plan_exit_code)"
+            fi
+            
+            echo "Upgrade test from $upgrade_from completed successfully"
+            echo ""
+          done
+
+      - name: Comment plans on PR
+        if: github.event_name == 'pull_request'
+        env:
+          TEST_DIR: ${{ matrix.test_dirs }}
+          UPGRADE_FROM_TAGS: ${{ needs.discover-tags.outputs.tags }}
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const testDir = process.env.TEST_DIR;
+            const upgradeTags = JSON.parse(process.env.UPGRADE_FROM_TAGS);
+            
+            let commentBody = `## Terraform Plans for ${testDir}\n\n`;
+            
+            for (const tag of upgradeTags) {
+              try {
+                const plan = fs.readFileSync(`plan-${tag}.txt`, 'utf8');
+                commentBody += `### Upgrade from \`${tag}\`\n\`\`\`\n${plan}\n\`\`\`\n\n`;
+              } catch (error) {
+                commentBody += `### Upgrade from \`${tag}\`\n*Plan file not found*\n\n`;
+              }
+            }
+            
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: commentBody
+            });
+
+      - name: Cleanup
+        if: always()
+        env:
+          TEST_DIR: ${{ matrix.test_dirs }}
+        run: |
+          echo "Cleaning up resources for $TEST_DIR"
+          terraform -chdir="tests/$TEST_DIR" destroy -auto-approve || echo "Destroy failed, but continuing..."
