@@ -140,7 +140,7 @@ jobs:
         id: plan_target_version
         run: |
           terraform -chdir=tests/${{ env.TEST_DIR }} init -upgrade -input=false
-          terraform -chdir=tests/${{ env.TEST_DIR }} plan -detailed-exitcode -input=false -out=tfplan || exit_code=$?
+          terraform -chdir=tests/${{ env.TEST_DIR }} plan -input=false -out=tfplan || exit_code=$?
           echo "exit_code=${exit_code:-0}" >> "$GITHUB_OUTPUT"
 
       - name: Save Terraform Plan Output
@@ -162,8 +162,7 @@ jobs:
             });
 
       - name: Terraform Apply target version
-        #if: steps.plan_target_version.outputs.exit_code == '2'
-        if: always()
+        if: steps.plan_target_version.outcome == 'success'
         run: |
           echo "Exit code from plan step: '${{ steps.plan_target_version.outputs.exit_code }}'"
           echo "Is it equal to '2'? ${{ steps.plan_target_version.outputs.exit_code == '2' }}"
