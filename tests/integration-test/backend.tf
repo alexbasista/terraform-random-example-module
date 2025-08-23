@@ -3,7 +3,7 @@ terraform {
     organization = "abasista-tfc"
 
     workspaces {
-      name    = "random-example-module-test-1"
+      name    = "random-example-module-test"
       project = "tf-module-ci"
     }
   }
