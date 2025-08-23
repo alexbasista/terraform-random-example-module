@@ -144,8 +144,25 @@ jobs:
           echo "exit_code=${exit_code:-0}" >> "$GITHUB_OUTPUT"
 
       - name: Save Terraform Plan Output
+        id: save_plan_output
         run: |
+          set -uo pipefail
+          
           terraform -chdir=tests/${{ env.TEST_DIR }} show -no-color tfplan > plan.txt
+          terraform -chdir=tests/${{ env.TEST_DIR }} show -json tfplan > plan.json
+
+          resource_changes=$(jq -r '[.resource_changes[]? | select(.change.actions != ["no-op"])] | length' plan.json)
+          output_changes=$(jq -r '.output_changes // {} | length' plan.json)
+
+          total_changes=$((resource_changes + output_changes))
+
+          if [ "$total_changes" -gt 0 ]; then
+            echo "has_changes=true" >> "$GITHUB_OUTPUT"
+            echo "Plan has $resource_changes resource changes and $output_changes output changes - will apply"
+          else
+            echo "has_changes=false" >> "$GITHUB_OUTPUT"
+            echo "Plan has no changes - will skip apply"
+          fi
 
       - name: Comment plan on PR
         if: github.event_name == 'pull_request'
@@ -162,7 +179,7 @@ jobs:
             });
 
       - name: Terraform Apply target version
-        if: steps.plan_target_version.outcome == 'success'
+        if: steps.save_plan_output.outputs.has_changes == 'true'
         run: |
           echo "Exit code from plan step: '${{ steps.plan_target_version.outputs.exit_code }}'"
           echo "Is it equal to '2'? ${{ steps.plan_target_version.outputs.exit_code == '2' }}"
