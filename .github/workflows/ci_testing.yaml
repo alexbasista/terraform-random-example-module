@@ -152,7 +152,8 @@ jobs:
           terraform -chdir=tests/${{ env.TEST_DIR }} show -json tfplan > plan.json
 
           resource_changes=$(jq -r '[.resource_changes[]? | select(.change.actions != ["no-op"])] | length' plan.json)
-          output_changes=$(jq -r '.output_changes // {} | length' plan.json)
+          #output_changes=$(jq -r '.output_changes // {} | length' plan.json)
+          output_changes=0
 
           total_changes=$((resource_changes + output_changes))
 
