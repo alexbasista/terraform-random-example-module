@@ -1,5 +1,5 @@
-# .github/workflows/ci_testing.yaml
-name: Terraform Module CI
+# .github/workflows/module_upgrade_test.yaml
+name: Terraform Module Upgrade Test
 
 on:
   workflow_dispatch:
@@ -158,6 +158,10 @@ jobs:
             else
               echo "No changes detected (exit code: $plan_exit_code)"
             fi
+            
+            # Destroy resources from this upgrade test before moving to next version
+            echo "Destroying resources from $upgrade_from test..."
+            terraform -chdir="tests/$TEST_DIR" destroy -auto-approve || echo "Destroy failed for $upgrade_from, but continuing..."
             
             echo "Upgrade test from $upgrade_from completed successfully"
             echo ""
