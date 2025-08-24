@@ -1,5 +1,5 @@
 # .github/workflows/module_release.yaml
-name: Terraform Module Release
+name: Terraform Module Version Release
 
 on:
   push:

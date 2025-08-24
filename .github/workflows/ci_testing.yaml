@@ -1,5 +1,5 @@
 # .github/workflows/ci_testing.yaml
-name: Terraform Module CI Test
+name: Terraform Module CI Testing
 
 on:
   workflow_dispatch:
