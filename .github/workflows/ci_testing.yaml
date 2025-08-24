@@ -57,6 +57,21 @@ jobs:
         run: |
           terraform -chdir=tests/${{ env.TEST_DIR }} destroy -auto-approve
 
+# -----------------------------------------------------------------------------
+# Job: Detect version change in VERSION file for more comprehensive release testing
+# -----------------------------------------------------------------------------
+  detect-changes:
+    runs-on: ubuntu-latest
+    outputs:
+      version-changed: ${{ steps.changes.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v2
+        id: changes
+        with:
+          filters: |
+            version:
+              - 'VERSION'
 
 # -----------------------------------------------------------------------------
 # Job: Discover semantic version tags for upgrade compatibility test
@@ -66,7 +81,7 @@ jobs:
     runs-on: ubuntu-latest
     # Only run when VERSION changes or manual dispatch
     #if: github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.modified, 'VERSION')
-    if: contains(github.event.head_commit.modified, 'VERSION')
+    needs.detect-changes.outputs.version-changed == 'true'
     env:
       INCLUDE_PREVIOUS_MAJOR_VERSION: true # set to false to skip N-1 major version test
     outputs:
