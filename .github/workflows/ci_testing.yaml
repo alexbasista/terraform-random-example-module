@@ -20,11 +20,53 @@ env:
 
 jobs:
 # -------------------------------------
-# Job: Discover semantic version tags
+# Job: Basic CI Test
 # -------------------------------------
+  basic-ci-test:
+    name: 'CI Test (Plan + Apply from scratch)'
+    runs-on: ubuntu-latest
+    env:
+      TF_TOKEN_app_terraform_io: ${{ secrets.TF_TOKEN_APP_TERRAFORM_IO }}
+      TEST_DIR: integration-test
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Set up Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.LOCAL_TF_VERSION }}
+
+      - name: Print test details
+        run: |
+          echo "========================================="
+          echo "🔄 CI TEST (Plan + Apply from scratch)"
+          echo "========================================="
+          echo "📁 Test directory: ${{ env.TEST_DIR }}"
+          echo "🔧 Local Terraform version: ${{ env.LOCAL_TF_VERSION }}"
+          echo "========================================="
+
+      - name: Terraform Init + Plan + Apply
+        run: |
+          terraform -chdir=tests/${{ env.TEST_DIR }} init -input=false
+          terraform -chdir=tests/${{ env.TEST_DIR }} plan -input=false -out=tfplan
+          terraform -chdir=tests/${{ env.TEST_DIR }} apply -input=false tfplan
+
+      - name: Terraform Destroy
+        if: always()
+        run: |
+          terraform -chdir=tests/${{ env.TEST_DIR }} destroy -auto-approve
+
+
+# -----------------------------------------------------------------------------
+# Job: Discover semantic version tags for upgrade compatibility test
+# -----------------------------------------------------------------------------
   discover-tags:
     name: Discover semantic version tags
     runs-on: ubuntu-latest
+    # Only run when VERSION changes or manual dispatch
+    #if: github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.modified, 'VERSION')
+    if: contains(github.event.head_commit.modified, 'VERSION')
     env:
       INCLUDE_PREVIOUS_MAJOR_VERSION: true # set to false to skip N-1 major version test
     outputs:
@@ -75,12 +117,13 @@ jobs:
           echo "EOF" >> $GITHUB_OUTPUT
           echo "Discovered tags: ${arr_json}"
 
-# -------------------------------------
-# Job: Upgrade test for each version
-# -------------------------------------
+# -----------------------------------------------------------------------------
+# Job: Upgrade compatibility test from existing module versions
+# -----------------------------------------------------------------------------
   upgrade-test:
     name: 'Upgrade test from: ${{ matrix.upgrade_from_version }}'
     needs: discover-tags
+    # Run only when VERSION changes AND there are tags
     if: needs.discover-tags.outputs.has_tags == 'true'
     runs-on: ubuntu-latest
     env:
@@ -183,8 +226,6 @@ jobs:
         if: steps.save_plan_output.outputs.has_changes == 'true'
         run: |
           echo "Exit code from plan step: '${{ steps.plan_target_version.outputs.exit_code }}'"
-          echo "Is it equal to '2'? ${{ steps.plan_target_version.outputs.exit_code == '2' }}"
-          echo "Is it equal to 2? ${{ steps.plan_target_version.outputs.exit_code == 2 }}"
           terraform -chdir=tests/${{ env.TEST_DIR }} apply -input=false tfplan
 
       - name: Terraform Destroy
