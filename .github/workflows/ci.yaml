@@ -79,4 +79,6 @@ jobs:
       - name: Terraform Destroy
         if: always() && (steps.apply.conclusion == 'success' || steps.apply.conclusion == 'failure')
         run: |
-          terraform -chdir=tests/${{ env.TEST_DIR }} destroy -auto-approve
+          echo "Apply conclusion: ${{ steps.apply.conclusion }}"
+          echo "Apply outcome: ${{ steps.apply.outcome }}"
+          echo "Should destroy: ${{ always() && (steps.apply.conclusion == 'success' || steps.apply.conclusion == 'failure') }}"
