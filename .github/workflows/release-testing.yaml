@@ -1,14 +1,11 @@
-# .github/workflows/ci_testing.yaml
-name: Terraform Module CI Test
+# .github/workflows/release-testing.yaml
+name: Terraform Module Release Testing
 
 on:
   workflow_dispatch:
   pull_request:
     branches: [main]
     paths:
-      - '*.tf'
-      - 'tests/**/*.tf'
-      - 'tests/**/*.tfvars'
       - 'VERSION'
 
 permissions:
@@ -20,8 +17,15 @@ env:
 
 jobs:
 # -------------------------------------
-# Job: Discover semantic version tags
+# Job: Basic CI Test
 # -------------------------------------
+  ci-test:
+    uses: ./.github/workflows/ci.yaml
+    secrets: inherit
+
+# -----------------------------------------------------------------------------
+# Job: Discover semantic version tags for upgrade compatibility test
+# -----------------------------------------------------------------------------
   discover-tags:
     name: Discover semantic version tags
     runs-on: ubuntu-latest
@@ -75,9 +79,9 @@ jobs:
           echo "EOF" >> $GITHUB_OUTPUT
           echo "Discovered tags: ${arr_json}"
 
-# -------------------------------------
-# Job: Upgrade test for each version
-# -------------------------------------
+# -----------------------------------------------------------------------------
+# Job: Upgrade compatibility test from existing module versions
+# -----------------------------------------------------------------------------
   upgrade-test:
     name: 'Upgrade test from: ${{ matrix.upgrade_from_version }}'
     needs: discover-tags
@@ -104,13 +108,13 @@ jobs:
 
       - name: Print test details
         run: |
-          echo "========================================="
-          echo "🚀 TERRAFORM MODULE UPGRADE TEST"
-          echo "========================================="
+          echo "==============================================="
+          echo "🚀 TERRAFORM MODULE UPGRADE COMPATIBILITY TEST"
+          echo "==============================================="
           echo "📦 Upgrade from: ${{ matrix.upgrade_from_version }}"
           echo "📁 Test directory: ${{ env.TEST_DIR }}"
           echo "🔧 Terraform version: ${{ env.LOCAL_TF_VERSION }} (ensure your remote workspace is configured accordingly)"
-          echo "========================================="
+          echo "==============================================="
       
       - name: Checkout baseline module version (upgrade_from)
         run: |
@@ -140,12 +144,30 @@ jobs:
         id: plan_target_version
         run: |
           terraform -chdir=tests/${{ env.TEST_DIR }} init -upgrade -input=false
-          terraform -chdir=tests/${{ env.TEST_DIR }} plan -detailed-exitcode -input=false -out=tfplan || exit_code=$?
+          terraform -chdir=tests/${{ env.TEST_DIR }} plan -input=false -out=tfplan || exit_code=$?
           echo "exit_code=${exit_code:-0}" >> "$GITHUB_OUTPUT"
 
       - name: Save Terraform Plan Output
+        id: save_plan_output
         run: |
+          set -uo pipefail
+          
           terraform -chdir=tests/${{ env.TEST_DIR }} show -no-color tfplan > plan.txt
+          terraform -chdir=tests/${{ env.TEST_DIR }} show -json tfplan > plan.json
+
+          resource_changes=$(jq -r '[.resource_changes[]? | select(.change.actions != ["no-op"])] | length' plan.json)
+          #output_changes=$(jq -r '.output_changes // {} | length' plan.json)
+          output_changes=0
+
+          total_changes=$((resource_changes + output_changes))
+
+          if [ "$total_changes" -gt 0 ]; then
+            echo "has_changes=true" >> "$GITHUB_OUTPUT"
+            echo "Plan has $resource_changes resource changes and $output_changes output changes - will apply"
+          else
+            echo "has_changes=false" >> "$GITHUB_OUTPUT"
+            echo "Plan has no changes - will skip apply"
+          fi
 
       - name: Comment plan on PR
         if: github.event_name == 'pull_request'
@@ -162,8 +184,9 @@ jobs:
             });
 
       - name: Terraform Apply target version
-        if: steps.plan_target_version.outputs.exit_code == '2'
+        if: steps.save_plan_output.outputs.has_changes == 'true'
         run: |
+          echo "Exit code from plan step: '${{ steps.plan_target_version.outputs.exit_code }}'"
           terraform -chdir=tests/${{ env.TEST_DIR }} apply -input=false tfplan
 
       - name: Terraform Destroy
