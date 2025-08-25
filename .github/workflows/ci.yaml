@@ -45,7 +45,14 @@ jobs:
           echo "========================================="
 
       - name: Terraform Format Check
-        run: terraform fmt -check -recursive
+        run: |
+          if ! terraform fmt -check -recursive; then
+            echo "❌ Terraform files are not properly formatted!"
+            echo "Run 'terraform fmt -recursive' to fix formatting issues."
+            echo "Files that need formatting:"
+            terraform fmt -check -recursive -diff
+            exit 1
+          fi
 
       - name: Setup TFLint
         uses: terraform-linters/setup-tflint@v5
