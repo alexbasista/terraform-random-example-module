@@ -62,7 +62,7 @@ jobs:
       - name: Run TFLint
         run: |
           tflint --init
-          tflint .
+          tflint --chdir=.
           tflint --chdir=tests/integration-test
 
       - name: Terraform Validate
