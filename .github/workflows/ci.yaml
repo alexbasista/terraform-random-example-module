@@ -17,12 +17,10 @@ permissions:
 
 env:
   LOCAL_TF_VERSION: "1.12.2"
+  TF_LINT_VERSION: "0.58.1"
 
 jobs:
-# -------------------------------------
-# Job: Basic CI Test
-# -------------------------------------
-  basic-ci-test:
+  ci-test:
     name: 'CI Test (Plan + Apply from scratch)'
     runs-on: ubuntu-latest
     env:
@@ -43,8 +41,26 @@ jobs:
           echo "🔄 CI TEST (Plan + Apply from scratch)"
           echo "========================================="
           echo "📁 Test directory: ${{ env.TEST_DIR }}"
-          echo "🔧 Local Terraform version: ${{ env.LOCAL_TF_VERSION }}"
+          echo "🔧 Local Terraform CLI version: ${{ env.LOCAL_TF_VERSION }}"
           echo "========================================="
+
+      - name: Terraform Format Check
+        run: terraform fmt -check -recursive
+
+      - name: Setup TFLint
+        uses: terraform-linters/setup-tflint@v5
+        with:
+          tflint_version: ${{ env.TF_LINT_VERSION }}"
+
+      - name: Run TFLint
+        run: |
+          tflint --init
+          tflint --recursive
+
+      - name: Terraform Validate
+        run: |
+          terraform -chdir=tests/${{ env.TEST_DIR }} init -backend=false
+          terraform -chdir=tests/${{ env.TEST_DIR }} validate
 
       - name: Terraform Init + Plan + Apply
         run: |
@@ -56,4 +72,3 @@ jobs:
         if: always()
         run: |
           terraform -chdir=tests/${{ env.TEST_DIR }} destroy -auto-approve
-
