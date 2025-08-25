@@ -76,6 +76,6 @@ jobs:
           terraform -chdir=tests/${{ env.TEST_DIR }} apply -input=false tfplan
 
       - name: Terraform Destroy
-        if: always() && steps.apply.outcome != 'skipped'
+        if: always() && steps.apply.conclusion == 'success' || steps.apply.conclusion == 'failure'
         run: |
           terraform -chdir=tests/${{ env.TEST_DIR }} destroy -auto-approve
