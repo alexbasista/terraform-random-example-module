@@ -75,7 +75,6 @@ jobs:
           terraform -chdir=tests/${{ env.TEST_DIR }} init -input=false
           terraform -chdir=tests/${{ env.TEST_DIR }} plan -input=false -out=tfplan
 
-          # (optional) skip apply if no resource changes — safer for remote runs
           resource_changes=$(terraform -chdir=tests/${{ env.TEST_DIR }} show -json tfplan \
             | jq -r '[.resource_changes[]? | select(.change.actions != ["no-op"])] | length')
 
