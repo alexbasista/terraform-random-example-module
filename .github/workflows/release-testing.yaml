@@ -1,25 +1,31 @@
-# .github/workflows/module_upgrade_test.yaml
-name: Terraform Module Upgrade Test
+# .github/workflows/release-testing.yaml
+name: Terraform Module Release Testing
 
 on:
   workflow_dispatch:
   pull_request:
     branches: [main]
     paths:
-      - '*.tf'
-      - 'tests/**/*.tf'
-      - 'tests/**/*.tfvars'
       - 'VERSION'
 
 permissions:
   contents: read
   pull-requests: write
 
+env:
+  LOCAL_TF_VERSION: "1.12.2"
 
 jobs:
 # -------------------------------------
-# Job: Discover semantic version tags
+# Job: Basic CI Test
 # -------------------------------------
+  ci-test:
+    uses: ./.github/workflows/ci.yaml
+    secrets: inherit
+
+# -----------------------------------------------------------------------------
+# Job: Discover semantic version tags for upgrade compatibility test
+# -----------------------------------------------------------------------------
   discover-tags:
     name: Discover semantic version tags
     runs-on: ubuntu-latest
@@ -72,28 +78,23 @@ jobs:
           echo "${arr_json}" >> $GITHUB_OUTPUT
           echo "EOF" >> $GITHUB_OUTPUT
           echo "Discovered tags: ${arr_json}"
-      
-      # - name: Print discovered tags
-      #   run: |
-      #     echo "Discovered tags: ${{ steps.get-tags.outputs.tags }}"
 
-# -------------------------------------
-# Job: Upgrade test matrix
-# -------------------------------------
+# -----------------------------------------------------------------------------
+# Job: Upgrade compatibility test from existing module versions
+# -----------------------------------------------------------------------------
   upgrade-test:
-    name: 'Upgrade test from: ${{ matrix.upgrade_from }}, test_dir: ${{ matrix.test_dirs }}'
+    name: 'Upgrade test from: ${{ matrix.upgrade_from_version }}'
     needs: discover-tags
     if: needs.discover-tags.outputs.has_tags == 'true'
     runs-on: ubuntu-latest
     env:
       TF_TOKEN_app_terraform_io: ${{ secrets.TF_TOKEN_APP_TERRAFORM_IO }}
+      TEST_DIR: integration-test
     strategy:
       fail-fast: false
-      max-parallel: 1
+      max-parallel: 1  # Sequential execution since all jobs target the same TFC workspace
       matrix:
-        test_dirs: [integration-test-1, integration-test-2]
-        upgrade_from: ${{ fromJson(needs.discover-tags.outputs.tags) }}
-        terraform_version: [1.12.2]
+        upgrade_from_version: ${{ fromJson(needs.discover-tags.outputs.tags) }}
     steps:
       - name: Checkout repo
         uses: actions/checkout@v4
@@ -103,54 +104,70 @@ jobs:
       - name: Set up Terraform
         uses: hashicorp/setup-terraform@v3
         with:
-          terraform_version: ${{ matrix.terraform_version }}
+          terraform_version: ${{ env.LOCAL_TF_VERSION }}
 
       - name: Print test details
         run: |
-          echo "Testing upgrade from module version ${{ matrix.upgrade_from }}."
-          echo "Testing Terraform version ${{ matrix.terraform_version }}."
+          echo "==============================================="
+          echo "🚀 TERRAFORM MODULE UPGRADE COMPATIBILITY TEST"
+          echo "==============================================="
+          echo "📦 Upgrade from: ${{ matrix.upgrade_from_version }}"
+          echo "📁 Test directory: ${{ env.TEST_DIR }}"
+          echo "🔧 Terraform version: ${{ env.LOCAL_TF_VERSION }} (ensure your remote workspace is configured accordingly)"
+          echo "==============================================="
       
       - name: Checkout baseline module version (upgrade_from)
         run: |
-          BASELINE_DIR="baseline-${{ matrix.upgrade_from }}"
+          BASELINE_DIR="baseline-${{ matrix.upgrade_from_version }}"
           git clone . "$BASELINE_DIR"
           cd "$BASELINE_DIR"
-          git checkout "${{ matrix.upgrade_from }}"
+          git checkout "${{ matrix.upgrade_from_version }}"
           ls -l
 
       - name: Update module source to baseline version
         run: |
-          BASELINE_DIR="baseline-${{ matrix.upgrade_from }}"
-          sed -i 's|source = .*|source = "git::https://github.com/${{ github.repository }}.git//.?ref=${{ matrix.upgrade_from }}"|' "$BASELINE_DIR/tests/${{ matrix.test_dirs }}/main.tf"
+          BASELINE_DIR="baseline-${{ matrix.upgrade_from_version }}"
+          sed -i 's|source = .*|source = "git::https://github.com/${{ github.repository }}.git//.?ref=${{ matrix.upgrade_from_version }}"|' "$BASELINE_DIR/tests/${{ env.TEST_DIR }}/main.tf"
 
       - name: Terraform Init + Apply baseline version
         run: |
-          BASELINE_DIR="baseline-${{ matrix.upgrade_from }}"
-          cat "$BASELINE_DIR/tests/${{ matrix.test_dirs }}/main.tf"
-          terraform -chdir="$BASELINE_DIR/tests/${{ matrix.test_dirs }}" init -input=false
-          terraform -chdir="$BASELINE_DIR/tests/${{ matrix.test_dirs }}" apply -auto-approve
-
-      # needed for Terraform Community Edition where the statefile is local to the GitHub runner
-      # - name: Copy state and .terraform to target version test dir
-      #   run: |
-      #     BASELINE_DIR="baseline-${{ matrix.upgrade_from }}"
-      #     cp "$BASELINE_DIR/tests/${{ matrix.test_dirs }}/terraform.tfstate" tests/${{ matrix.test_dirs }}/ || true
-      #     cp -r "$BASELINE_DIR/tests/${{ matrix.test_dirs }}/.terraform" tests/${{ matrix.test_dirs }}/ || true
+          BASELINE_DIR="baseline-${{ matrix.upgrade_from_version }}"
+          cat "$BASELINE_DIR/tests/${{ env.TEST_DIR }}/main.tf"
+          terraform -chdir="$BASELINE_DIR/tests/${{ env.TEST_DIR }}" init -input=false
+          terraform -chdir="$BASELINE_DIR/tests/${{ env.TEST_DIR }}" apply -auto-approve
 
       - name: Switch to local module source (current branch)
         run: |
-          sed -i 's|source = .*|source = "../.."|' tests/${{ matrix.test_dirs }}/main.tf
+          sed -i 's|source = .*|source = "../.."|' tests/${{ env.TEST_DIR }}/main.tf
 
       - name: Terraform Init + Plan target version
         id: plan_target_version
         run: |
-          terraform -chdir=tests/${{ matrix.test_dirs }} init -upgrade -input=false
-          terraform -chdir=tests/${{ matrix.test_dirs }} plan -detailed-exitcode -input=false -out=tfplan || exit_code=$?
+          terraform -chdir=tests/${{ env.TEST_DIR }} init -upgrade -input=false
+          terraform -chdir=tests/${{ env.TEST_DIR }} plan -input=false -out=tfplan || exit_code=$?
           echo "exit_code=${exit_code:-0}" >> "$GITHUB_OUTPUT"
 
       - name: Save Terraform Plan Output
+        id: save_plan_output
         run: |
-          terraform -chdir=tests/${{ matrix.test_dirs }} show -no-color tfplan > plan.txt
+          set -uo pipefail
+          
+          terraform -chdir=tests/${{ env.TEST_DIR }} show -no-color tfplan > plan.txt
+          terraform -chdir=tests/${{ env.TEST_DIR }} show -json tfplan > plan.json
+
+          resource_changes=$(jq -r '[.resource_changes[]? | select(.change.actions != ["no-op"])] | length' plan.json)
+          #output_changes=$(jq -r '.output_changes // {} | length' plan.json)
+          output_changes=0
+
+          total_changes=$((resource_changes + output_changes))
+
+          if [ "$total_changes" -gt 0 ]; then
+            echo "has_changes=true" >> "$GITHUB_OUTPUT"
+            echo "Plan has $resource_changes resource changes and $output_changes output changes - will apply"
+          else
+            echo "has_changes=false" >> "$GITHUB_OUTPUT"
+            echo "Plan has no changes - will skip apply"
+          fi
 
       - name: Comment plan on PR
         if: github.event_name == 'pull_request'
@@ -163,16 +180,16 @@ jobs:
               issue_number: context.issue.number,
               owner: context.repo.owner,
               repo: context.repo.repo,
-              body: `### Terraform Plan (Upgrade Test from \`${{ matrix.upgrade_from }}\`, test_dir: \`${{ matrix.test_dirs }}\`)\n\`\`\`\n${plan}\n\`\`\``
-
+              body: `### Terraform Plan (Upgrade Test from \`${{ matrix.upgrade_from_version }}\`)\n\`\`\`\n${plan}\n\`\`\``
             });
 
       - name: Terraform Apply target version
-        if: steps.plan_target_version.outputs.exit_code == '2'
+        if: steps.save_plan_output.outputs.has_changes == 'true'
         run: |
-          terraform -chdir=tests/${{ matrix.test_dirs }} apply -input=false tfplan
+          echo "Exit code from plan step: '${{ steps.plan_target_version.outputs.exit_code }}'"
+          terraform -chdir=tests/${{ env.TEST_DIR }} apply -input=false tfplan
 
       - name: Terraform Destroy
         if: always()
         run: |
-          terraform -chdir=tests/${{ matrix.test_dirs }} destroy -auto-approve
+          terraform -chdir=tests/${{ env.TEST_DIR }} destroy -auto-approve

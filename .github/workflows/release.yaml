@@ -1,4 +1,4 @@
-# .github/workflows/module_release.yaml
+# .github/workflows/release.yaml
 name: Terraform Module Version Release
 
 on:

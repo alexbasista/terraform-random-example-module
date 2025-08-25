@@ -1,0 +1,59 @@
+# .github/workflows/ci.yaml
+name: Terraform Module CI Testing
+
+on:
+  workflow_call:
+  workflow_dispatch:
+  pull_request:
+    branches: [main]
+    paths:
+      - '*.tf'
+      - 'tests/**/*.tf'
+      - 'tests/**/*.tfvars'
+
+permissions:
+  contents: read
+  pull-requests: write
+
+env:
+  LOCAL_TF_VERSION: "1.12.2"
+
+jobs:
+# -------------------------------------
+# Job: Basic CI Test
+# -------------------------------------
+  basic-ci-test:
+    name: 'CI Test (Plan + Apply from scratch)'
+    runs-on: ubuntu-latest
+    env:
+      TF_TOKEN_app_terraform_io: ${{ secrets.TF_TOKEN_APP_TERRAFORM_IO }}
+      TEST_DIR: integration-test
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Set up Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.LOCAL_TF_VERSION }}
+
+      - name: Print test details
+        run: |
+          echo "========================================="
+          echo "🔄 CI TEST (Plan + Apply from scratch)"
+          echo "========================================="
+          echo "📁 Test directory: ${{ env.TEST_DIR }}"
+          echo "🔧 Local Terraform version: ${{ env.LOCAL_TF_VERSION }}"
+          echo "========================================="
+
+      - name: Terraform Init + Plan + Apply
+        run: |
+          terraform -chdir=tests/${{ env.TEST_DIR }} init -input=false
+          terraform -chdir=tests/${{ env.TEST_DIR }} plan -input=false -out=tfplan
+          terraform -chdir=tests/${{ env.TEST_DIR }} apply -input=false tfplan
+
+      - name: Terraform Destroy
+        if: always()
+        run: |
+          terraform -chdir=tests/${{ env.TEST_DIR }} destroy -auto-approve
+
