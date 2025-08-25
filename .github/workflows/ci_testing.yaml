@@ -60,7 +60,7 @@ jobs:
 # -----------------------------------------------------------------------------
 # Job: Detect version change in VERSION file for more comprehensive release testing
 # -----------------------------------------------------------------------------
-  detect-changes:
+  detect-version-change:
     runs-on: ubuntu-latest
     outputs:
       version-changed: ${{ steps.changes.outputs.version }}
@@ -78,10 +78,9 @@ jobs:
 # -----------------------------------------------------------------------------
   discover-tags:
     name: Discover semantic version tags
+    needs: detect-version-change
+    if: needs.detect-changes.outputs.version-changed == 'true'
     runs-on: ubuntu-latest
-    # Only run when VERSION changes or manual dispatch
-    #if: github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.modified, 'VERSION')
-    needs.detect-changes.outputs.version-changed == 'true'
     env:
       INCLUDE_PREVIOUS_MAJOR_VERSION: true # set to false to skip N-1 major version test
     outputs:
