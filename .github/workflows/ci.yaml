@@ -74,11 +74,18 @@ jobs:
         run: |
           terraform -chdir=tests/${{ env.TEST_DIR }} init -input=false
           terraform -chdir=tests/${{ env.TEST_DIR }} plan -input=false -out=tfplan
-          terraform -chdir=tests/${{ env.TEST_DIR }} apply -input=false tfplan
 
+          # (optional) skip apply if no resource changes — safer for remote runs
+          resource_changes=$(terraform -chdir=tests/${{ env.TEST_DIR }} show -json tfplan \
+            | jq -r '[.resource_changes[]? | select(.change.actions != ["no-op"])] | length')
+
+          if [ "$resource_changes" -gt 0 ]; then
+            terraform -chdir=tests/${{ env.TEST_DIR }} apply -input=false tfplan
+          else
+            echo "No resource changes; skipping apply."
+          fi
+      
       - name: Terraform Destroy
-        if: always() && (steps.apply.conclusion == 'success' || steps.apply.conclusion == 'failure')
+        if: always()
         run: |
-          echo "Apply conclusion: ${{ steps.apply.conclusion }}"
-          echo "Apply outcome: ${{ steps.apply.outcome }}"
-          echo "Should destroy: ${{ always() && (steps.apply.conclusion == 'success' || steps.apply.conclusion == 'failure') }}"
+          terraform -chdir=tests/${{ env.TEST_DIR }} destroy -auto-approve
