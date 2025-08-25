@@ -56,8 +56,8 @@ jobs:
 
       - name: Setup TFLint
         uses: terraform-linters/setup-tflint@v5
-        with:
-          tflint_version: ${{ env.TF_LINT_VERSION }}
+        # with:
+        #   tflint_version: ${{ env.TF_LINT_VERSION }}
 
       - name: Run TFLint
         run: |
