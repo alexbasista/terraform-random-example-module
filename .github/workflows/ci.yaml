@@ -104,4 +104,5 @@ jobs:
         if: steps.terraform-init-plan-apply.conclusion != 'skipped'
         run: |
           echo "Running `terraform destroy` against ${{ env.INT_TEST_DIR }} directory ..."
-          terraform -chdir=${{ env.INT_TEST_DIR }} destroy -auto-approve
+          terraform -chdir=${{ env.INT_TEST_DIR }} init -input=false
+          terraform -chdir=${{ env.INT_TEST_DIR }} destroy -auto-approve -input=false
