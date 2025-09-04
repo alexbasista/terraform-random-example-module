@@ -47,7 +47,7 @@ jobs:
           echo "Phase 2: Integration test (terraform plan + apply)"
           echo "📁 Integration test directory: ${{ env.INT_TEST_DIR }}"
           echo ""
-          echo "🔧 Terraform CLI version: ${{ env.LOCAL_TF_VERSION }}"
+          echo "🔧 Local Terraform CLI version: ${{ env.LOCAL_TF_VERSION }}"
           echo "========================================="
 
       - name: Terraform Format Check
@@ -84,6 +84,7 @@ jobs:
           terraform -chdir=${{ env.INT_TEST_DIR }} validate
 
       - name: Terraform Init + Plan + Apply
+        id: terraform-init-plan-apply
         run: |
           echo "Running `terraform init` and `terraform plan` against ${{ env.INT_TEST_DIR }} directory..."
           terraform -chdir=${{ env.INT_TEST_DIR }} init -input=false
@@ -99,7 +100,7 @@ jobs:
           fi
       
       - name: Terraform Destroy
-        if: always()
+        if: steps.terraform-init-plan-apply.conclusion != 'skipped'
         run: |
           echo "Running `terraform destroy` against ${{ env.INT_TEST_DIR }} directory ..."
           terraform -chdir=${{ env.INT_TEST_DIR }} destroy -auto-approve
