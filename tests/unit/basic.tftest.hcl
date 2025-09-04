@@ -30,3 +30,12 @@ run "test_custom_values" {
     error_message = "Pet prefix should match input variable"
   }
 }
+
+run "test_failure_scenario" {
+  command = plan
+
+  assert {
+    condition     = random_pet.example_1.length == 999
+    error_message = "This should fail - pet length will never be 999"
+  }
+}
