@@ -14,7 +14,7 @@ run "test_default_values" {
 
 run "test_custom_values" {
   command = plan
-  
+
   variables {
     pet_prefix = "test"
     pet_length = 3
