@@ -10,6 +10,7 @@ on:
       - '*.tf'
       - 'tests/**/*.tf'
       - 'tests/**/*.tfvars'
+      - 'tests/**/*.tftest.hcl'
 
 permissions:
   contents: read
