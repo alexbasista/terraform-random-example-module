@@ -16,16 +16,17 @@ permissions:
   pull-requests: write
 
 env:
-  LOCAL_TF_VERSION: "1.12.2"
-  TF_LINT_VERSION: "0.58.1"
+  LOCAL_TF_VERSION: "1.13.1"
+  #TF_LINT_VERSION: "0.58.1"
 
 jobs:
   ci-test:
-    name: 'CI Test (Plan + Apply from scratch)'
+    name: 'CI Test Pipeline'
     runs-on: ubuntu-latest
     env:
       TF_TOKEN_app_terraform_io: ${{ secrets.TF_TOKEN_APP_TERRAFORM_IO }}
-      TEST_DIR: integration-test
+      UNIT_TEST_DIR: tests/unit
+      INT_TEST_DIR: tests/integration
     steps:
       - name: Checkout repo
         uses: actions/checkout@v4
@@ -38,10 +39,15 @@ jobs:
       - name: Print test details
         run: |
           echo "========================================="
-          echo "🔄 CI TEST (Plan + Apply from scratch)"
+          echo "🔄 CI Test Pipeline"
           echo "========================================="
-          echo "📁 Test directory: ${{ env.TEST_DIR }}"
-          echo "🔧 Local Terraform CLI version: ${{ env.LOCAL_TF_VERSION }}"
+          echo "Phase 1: Unit tests (terraform test)"
+          echo "📁 Unit test directory: ${{ env.UNIT_TEST_DIR }}"
+          echo ""
+          echo "Phase 2: Integration test (terraform plan + apply)"
+          echo "📁 Integration test directory: ${{ env.INT_TEST_DIR }}"
+          echo ""
+          echo "🔧 Terraform CLI version: ${{ env.LOCAL_TF_VERSION }}"
           echo "========================================="
 
       - name: Terraform Format Check
@@ -65,21 +71,29 @@ jobs:
       #     tflint --chdir=.
       #     tflint --chdir=tests/integration-test
 
+      - name: Terraform Test (unit test)
+        run: |
+          echo "Running `terraform test` against ${{ env.UNIT_TEST_DIR }} directory..."
+          terraform init
+          terraform test -test-directory=${{ env.UNIT_TEST_DIR }}
+      
       - name: Terraform Validate
         run: |
-          terraform -chdir=tests/${{ env.TEST_DIR }} init -backend=false
-          terraform -chdir=tests/${{ env.TEST_DIR }} validate
+          echo "Running `terraform validate` against ${{ env.INT_TEST_DIR }} directory..."
+          terraform -chdir=${{ env.INT_TEST_DIR }} init -backend=false
+          terraform -chdir=${{ env.INT_TEST_DIR }} validate
 
       - name: Terraform Init + Plan + Apply
         run: |
-          terraform -chdir=tests/${{ env.TEST_DIR }} init -input=false
-          terraform -chdir=tests/${{ env.TEST_DIR }} plan -input=false -out=tfplan
+          echo "Running `terraform init` and `terraform plan` against ${{ env.INT_TEST_DIR }} directory..."
+          terraform -chdir=${{ env.INT_TEST_DIR }} init -input=false
+          terraform -chdir=${{ env.INT_TEST_DIR }} plan -input=false -out=tfplan
 
-          resource_changes=$(terraform -chdir=tests/${{ env.TEST_DIR }} show -json tfplan \
+          resource_changes=$(terraform -chdir=${{ env.INT_TEST_DIR }} show -json tfplan \
             | jq -r '[.resource_changes[]? | select(.change.actions != ["no-op"])] | length')
 
           if [ "$resource_changes" -gt 0 ]; then
-            terraform -chdir=tests/${{ env.TEST_DIR }} apply -input=false tfplan
+            terraform -chdir=${{ env.INT_TEST_DIR }} apply -input=false tfplan
           else
             echo "No resource changes; skipping apply."
           fi
@@ -87,4 +101,5 @@ jobs:
       - name: Terraform Destroy
         if: always()
         run: |
-          terraform -chdir=tests/${{ env.TEST_DIR }} destroy -auto-approve
+          echo "Running `terraform destroy` against ${{ env.INT_TEST_DIR }} directory ..."
+          terraform -chdir=${{ env.INT_TEST_DIR }} destroy -auto-approve
