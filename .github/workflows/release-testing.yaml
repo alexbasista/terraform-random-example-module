@@ -29,7 +29,7 @@ jobs:
 # -----------------------------------------------------------------------------
   discover-semver-tags:
     name: "Discover SemVer Tags"
-    needs: ci-checks
+    needs: ci-checks-NAMETEST
     runs-on: ubuntu-latest
     env:
       INCLUDE_PREVIOUS_MAJOR_VERSION: true # set to false to skip N-1 major version test
