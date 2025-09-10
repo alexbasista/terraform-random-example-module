@@ -89,7 +89,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       TF_TOKEN_app_terraform_io: ${{ secrets.TF_TOKEN_APP_TERRAFORM_IO }}
-      TEST_DIR: integration-test
+      TEST_DIR: integration
     strategy:
       fail-fast: false
       max-parallel: 1  # Sequential execution since all jobs target the same TFC workspace
