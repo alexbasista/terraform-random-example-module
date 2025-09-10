@@ -140,7 +140,7 @@ jobs:
       - name: Terraform Init + Apply baseline version
         run: |
           BASELINE_DIR="baseline-${{ matrix.upgrade_from_version }}"
-          cat "$BASELINE_DIR/tests/${{ env.TEST_DIR }}/main.tf"
+          #cat "$BASELINE_DIR/${{ env.TEST_DIR }}/main.tf"
           terraform -chdir="$BASELINE_DIR/${{ env.TEST_DIR }}" init -input=false
           terraform -chdir="$BASELINE_DIR/${{ env.TEST_DIR }}" apply -auto-approve
 
