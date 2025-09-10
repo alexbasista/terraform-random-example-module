@@ -64,8 +64,36 @@ jobs:
         run: |
           echo "Running terraform test against ${{ env.UNIT_TEST_DIR }} directory..."
           terraform init
-          terraform test -test-directory=${{ env.UNIT_TEST_DIR }}
-      
+          terraform test -test-directory=${{ env.UNIT_TEST_DIR }} | tee terraform-test-output.log
+
+      - name: Comment unit test output on PR
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            let body = fs.readFileSync('terraform-test-output.log', 'utf8');
+
+            // Safety: GitHub comments max out ~65k chars
+            const MAX = 60000;
+            if (body.length > MAX) {
+              body = body.slice(0, MAX) + "\n\n... [truncated]";
+            }
+
+            const comment = [
+              "### Terraform (Unit) Test Output",
+              "```",
+              body,
+              "```"
+            ].join("\n");
+
+            await github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: comment
+            });
+
       - name: Terraform validate (integration test)
         run: |
           echo "Running terraform validate against ${{ env.INT_TEST_DIR }} directory..."
