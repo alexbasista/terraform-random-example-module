@@ -13,8 +13,7 @@ Benefits to this approach include:
 module "example_module" {
   source = "../.."
 
-  pet_length = var.pet_length
-  pet_prefix = var.pet_prefix
+  # Module inputs would be specified here
 }
 ```
 
