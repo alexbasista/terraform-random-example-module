@@ -1,5 +1,5 @@
 # .github/workflows/ci.yaml
-name: Terraform Module CI Checks
+name: Terraform Module CI Testing
 
 on:
   workflow_call:
@@ -21,7 +21,7 @@ env:
 
 jobs:
   ci-checks:
-    name: 'Terraform Module CI Checks'
+    name: 'TF Module CI Checks'
     runs-on: ubuntu-latest
     env:
       TF_TOKEN_app_terraform_io: ${{ secrets.TF_TOKEN_APP_TERRAFORM_IO }}
