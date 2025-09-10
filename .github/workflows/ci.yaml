@@ -17,12 +17,11 @@ permissions:
   pull-requests: write
 
 env:
-  LOCAL_TF_VERSION: "1.13.1"
-  #TF_LINT_VERSION: "0.58.1"
+  LOCAL_TF_VERSION: 1.13.2
 
 jobs:
-  ci-test:
-    name: 'CI Test Pipeline'
+  ci-checks:
+    name: 'TF Module CI Checks'
     runs-on: ubuntu-latest
     env:
       TF_TOKEN_app_terraform_io: ${{ secrets.TF_TOKEN_APP_TERRAFORM_IO }}
@@ -32,7 +31,7 @@ jobs:
       - name: Checkout repo
         uses: actions/checkout@v4
 
-      - name: Set up Terraform
+      - name: Set up Terraform ${{ env.LOCAL_TF_VERSION }}
         uses: hashicorp/setup-terraform@v3
         with:
           terraform_version: ${{ env.LOCAL_TF_VERSION }}
@@ -40,7 +39,7 @@ jobs:
       - name: Print test details
         run: |
           echo "========================================="
-          echo "🔄 CI Test Pipeline"
+          echo "🔄 Terraform Module CI Checks            "
           echo "========================================="
           echo "Phase 1: Unit tests (terraform test)"
           echo "📁 Unit test directory: ${{ env.UNIT_TEST_DIR }}"
@@ -51,7 +50,7 @@ jobs:
           echo "🔧 Local Terraform CLI version: ${{ env.LOCAL_TF_VERSION }}"
           echo "========================================="
 
-      - name: Terraform Format Check
+      - name: Terraform fmt check
         run: |
           if ! terraform fmt -check -recursive; then
             echo "❌ Terraform files are not properly formatted!"
@@ -61,33 +60,23 @@ jobs:
             exit 1
           fi
 
-      # - name: Setup TFLint
-      #   uses: terraform-linters/setup-tflint@v5
-      #   with:
-      #     tflint_version: ${{ env.TF_LINT_VERSION }}
-
-      # - name: Run TFLint
-      #   run: |
-      #     tflint --init
-      #     tflint --chdir=.
-      #     tflint --chdir=tests/integration-test
-
-      - name: Terraform Test (unit test)
+      - name: Terraform test (unit test)
         run: |
-          echo "Running `terraform test` against ${{ env.UNIT_TEST_DIR }} directory..."
+          set -o pipefail
+          echo "Running terraform test against ${{ env.UNIT_TEST_DIR }} directory..."
           terraform init
           terraform test -test-directory=${{ env.UNIT_TEST_DIR }}
-      
-      - name: Terraform Validate
+
+      - name: Terraform validate (integration test)
         run: |
-          echo "Running `terraform validate` against ${{ env.INT_TEST_DIR }} directory..."
+          echo "Running terraform validate against ${{ env.INT_TEST_DIR }} directory..."
           terraform -chdir=${{ env.INT_TEST_DIR }} init -backend=false
           terraform -chdir=${{ env.INT_TEST_DIR }} validate
 
-      - name: Terraform Init + Plan + Apply
-        id: terraform-init-plan-apply
+      - name: Terraform plan + apply (integration test)
+        id: terraform_plan_apply
         run: |
-          echo "Running `terraform init` and `terraform plan` against ${{ env.INT_TEST_DIR }} directory..."
+          echo "Running terraform init and terraform plan against ${{ env.INT_TEST_DIR }} directory..."
           terraform -chdir=${{ env.INT_TEST_DIR }} init -input=false
           terraform -chdir=${{ env.INT_TEST_DIR }} plan -input=false -out=tfplan
 
@@ -95,14 +84,15 @@ jobs:
             | jq -r '[.resource_changes[]? | select(.change.actions != ["no-op"])] | length')
 
           if [ "$resource_changes" -gt 0 ]; then
+            echo "Running terraform apply against ${{ env.INT_TEST_DIR }} directory..."
             terraform -chdir=${{ env.INT_TEST_DIR }} apply -input=false tfplan
           else
             echo "No resource changes; skipping apply."
           fi
       
-      - name: Terraform Destroy
-        if: steps.terraform-init-plan-apply.conclusion != 'skipped'
+      - name: Terraform destroy (cleanup)
+        if: steps.terraform_plan_apply.conclusion != 'skipped'
         run: |
-          echo "Running `terraform destroy` against ${{ env.INT_TEST_DIR }} directory ..."
+          echo "Running terraform destroy against ${{ env.INT_TEST_DIR }} directory ..."
           terraform -chdir=${{ env.INT_TEST_DIR }} init -input=false
           terraform -chdir=${{ env.INT_TEST_DIR }} destroy -auto-approve -input=false

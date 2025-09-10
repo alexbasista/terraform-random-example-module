@@ -13,21 +13,23 @@ permissions:
   pull-requests: write
 
 env:
-  LOCAL_TF_VERSION: "1.13.1"
+  LOCAL_TF_VERSION: 1.13.2
 
 jobs:
 # -------------------------------------
-# Job: Basic CI Test
+# Job: Run CI checks first
 # -------------------------------------
-  ci-test:
+  ci-checks:
+    name: "Run CI Tests"
     uses: ./.github/workflows/ci.yaml
     secrets: inherit
 
 # -----------------------------------------------------------------------------
-# Job: Discover semantic version tags for upgrade compatibility test
+# Job: Discover SemVer tags for upgrade compatibility test
 # -----------------------------------------------------------------------------
-  discover-tags:
-    name: Discover semantic version tags
+  discover-semver-tags:
+    name: "Discover SemVer Tags"
+    needs: ci-checks
     runs-on: ubuntu-latest
     env:
       INCLUDE_PREVIOUS_MAJOR_VERSION: true # set to false to skip N-1 major version test
@@ -40,7 +42,7 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Get latest semver tags
+      - name: Get latest SemVer tags
         id: get-tags
         shell: bash
         run: |
@@ -83,25 +85,25 @@ jobs:
 # Job: Upgrade compatibility test from existing module versions
 # -----------------------------------------------------------------------------
   upgrade-test:
-    name: 'Upgrade test from: ${{ matrix.upgrade_from_version }}'
-    needs: discover-tags
-    if: needs.discover-tags.outputs.has_tags == 'true'
+    name: "Upgrade Compatibility Test (from: ${{ matrix.upgrade_from_version }})"
+    needs: discover-semver-tags
+    if: needs.discover-semver-tags.outputs.has_tags == 'true'
     runs-on: ubuntu-latest
     env:
       TF_TOKEN_app_terraform_io: ${{ secrets.TF_TOKEN_APP_TERRAFORM_IO }}
-      TEST_DIR: integration-test
+      TEST_DIR: tests/integration
     strategy:
       fail-fast: false
-      max-parallel: 1  # Sequential execution since all jobs target the same TFC workspace
       matrix:
-        upgrade_from_version: ${{ fromJson(needs.discover-tags.outputs.tags) }}
+        upgrade_from_version: ${{ fromJson(needs.discover-semver-tags.outputs.tags) }}
+      max-parallel: 1  # Sequential execution since matrix jobs target the same TFC workspace
     steps:
       - name: Checkout repo
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      - name: Set up Terraform
+      - name: Set up Terraform ${{ env.LOCAL_TF_VERSION }}
         uses: hashicorp/setup-terraform@v3
         with:
           terraform_version: ${{ env.LOCAL_TF_VERSION }}
@@ -113,47 +115,36 @@ jobs:
           echo "==============================================="
           echo "📦 Upgrade from: ${{ matrix.upgrade_from_version }}"
           echo "📁 Test directory: ${{ env.TEST_DIR }}"
-          echo "🔧 Terraform version: ${{ env.LOCAL_TF_VERSION }} (ensure your remote workspace is configured accordingly)"
+          echo "🔧 Terraform version: ${{ env.LOCAL_TF_VERSION }} (ensure your remote workspace is configured to match)"
           echo "==============================================="
-      
-      - name: Checkout baseline module version (upgrade_from)
+
+      - name: Checkout baseline at tag
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ matrix.upgrade_from_version }}
+          path: baseline-${{ matrix.upgrade_from_version }}
+          fetch-depth: 1
+
+      - name: Terraform apply baseline version
         run: |
           BASELINE_DIR="baseline-${{ matrix.upgrade_from_version }}"
-          git clone . "$BASELINE_DIR"
-          cd "$BASELINE_DIR"
-          git checkout "${{ matrix.upgrade_from_version }}"
-          ls -l
+          terraform -chdir="$BASELINE_DIR/${{ env.TEST_DIR }}" init -input=false
+          terraform -chdir="$BASELINE_DIR/${{ env.TEST_DIR }}" apply -auto-approve
 
-      - name: Update module source to baseline version
-        run: |
-          BASELINE_DIR="baseline-${{ matrix.upgrade_from_version }}"
-          sed -i 's|source = .*|source = "git::https://github.com/${{ github.repository }}.git//.?ref=${{ matrix.upgrade_from_version }}"|' "$BASELINE_DIR/tests/${{ env.TEST_DIR }}/main.tf"
-
-      - name: Terraform Init + Apply baseline version
-        run: |
-          BASELINE_DIR="baseline-${{ matrix.upgrade_from_version }}"
-          cat "$BASELINE_DIR/tests/${{ env.TEST_DIR }}/main.tf"
-          terraform -chdir="$BASELINE_DIR/tests/${{ env.TEST_DIR }}" init -input=false
-          terraform -chdir="$BASELINE_DIR/tests/${{ env.TEST_DIR }}" apply -auto-approve
-
-      - name: Switch to local module source (current branch)
-        run: |
-          sed -i 's|source = .*|source = "../.."|' tests/${{ env.TEST_DIR }}/main.tf
-
-      - name: Terraform Init + Plan target version
+      - name: Terraform plan target version
         id: plan_target_version
         run: |
-          terraform -chdir=tests/${{ env.TEST_DIR }} init -upgrade -input=false
-          terraform -chdir=tests/${{ env.TEST_DIR }} plan -input=false -out=tfplan || exit_code=$?
+          terraform -chdir=${{ env.TEST_DIR }} init -upgrade -input=false
+          terraform -chdir=${{ env.TEST_DIR }} plan -input=false -out=tfplan || exit_code=$?
           echo "exit_code=${exit_code:-0}" >> "$GITHUB_OUTPUT"
 
-      - name: Save Terraform Plan Output
+      - name: Save Terraform plan output
         id: save_plan_output
         run: |
           set -uo pipefail
           
-          terraform -chdir=tests/${{ env.TEST_DIR }} show -no-color tfplan > plan.txt
-          terraform -chdir=tests/${{ env.TEST_DIR }} show -json tfplan > plan.json
+          terraform -chdir=${{ env.TEST_DIR }} show -no-color tfplan > plan.txt
+          terraform -chdir=${{ env.TEST_DIR }} show -json tfplan > plan.json
 
           resource_changes=$(jq -r '[.resource_changes[]? | select(.change.actions != ["no-op"])] | length' plan.json)
           #output_changes=$(jq -r '.output_changes // {} | length' plan.json)
@@ -169,7 +160,7 @@ jobs:
             echo "Plan has no changes - will skip apply"
           fi
 
-      - name: Comment plan on PR
+      - name: Comment plan output on PR
         if: github.event_name == 'pull_request'
         uses: actions/github-script@v7
         with:
@@ -180,16 +171,16 @@ jobs:
               issue_number: context.issue.number,
               owner: context.repo.owner,
               repo: context.repo.repo,
-              body: `### Terraform Plan (Upgrade Test from \`${{ matrix.upgrade_from_version }}\`)\n\`\`\`\n${plan}\n\`\`\``
+              body: `### Terraform Plan Output (Upgrade Test from \`${{ matrix.upgrade_from_version }}\`)\n\`\`\`\n${plan}\n\`\`\``
             });
 
-      - name: Terraform Apply target version
+      - name: Terraform apply target version
         if: steps.save_plan_output.outputs.has_changes == 'true'
         run: |
           echo "Exit code from plan step: '${{ steps.plan_target_version.outputs.exit_code }}'"
-          terraform -chdir=tests/${{ env.TEST_DIR }} apply -input=false tfplan
+          terraform -chdir=${{ env.TEST_DIR }} apply -input=false tfplan
 
-      - name: Terraform Destroy
+      - name: Terraform destroy (cleanup)
         if: always()
         run: |
-          terraform -chdir=tests/${{ env.TEST_DIR }} destroy -auto-approve
+          terraform -chdir=${{ env.TEST_DIR }} destroy -auto-approve
