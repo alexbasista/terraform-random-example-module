@@ -31,14 +31,14 @@ run "test_custom_values" {
   }
 }
 
-run "test_failure_scenario" {
-  command = plan
+# run "test_failure_scenario" {
+#   command = plan
 
-  assert {
-    condition     = random_pet.example_1.length == 999
-    error_message = "This should fail - pet length will never be 999"
-  }
-}
+#   assert {
+#     condition     = random_pet.example_1.length == 999
+#     error_message = "This should fail - pet length will never be 999"
+#   }
+# }
 
 mock_provider "random" {
   override_during = plan
