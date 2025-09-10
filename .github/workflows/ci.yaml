@@ -65,7 +65,7 @@ jobs:
           set -o pipefail
           echo "Running terraform test against ${{ env.UNIT_TEST_DIR }} directory..."
           terraform init
-          terraform test -test-directory=${{ env.UNIT_TEST_DIR }} | tee terraform-test-output.log
+          terraform test -test-directory=${{ env.UNIT_TEST_DIR }}
 
       - name: Terraform validate (integration test)
         run: |
