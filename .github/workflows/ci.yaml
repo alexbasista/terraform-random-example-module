@@ -17,7 +17,7 @@ permissions:
   pull-requests: write
 
 env:
-  LOCAL_TF_VERSION: "1.13.2"
+  LOCAL_TF_VERSION: 1.13.2
 
 jobs:
   ci-checks:
@@ -62,13 +62,13 @@ jobs:
 
       - name: Terraform test (unit test)
         run: |
-          echo "Running `terraform test` against ${{ env.UNIT_TEST_DIR }} directory..."
+          echo "Running terraform test against ${{ env.UNIT_TEST_DIR }} directory..."
           terraform init
           terraform test -test-directory=${{ env.UNIT_TEST_DIR }}
       
       - name: Terraform validate (integration test)
         run: |
-          echo "Running `terraform validate` against ${{ env.INT_TEST_DIR }} directory..."
+          echo "Running terraform validate against ${{ env.INT_TEST_DIR }} directory..."
           terraform -chdir=${{ env.INT_TEST_DIR }} init -backend=false
           terraform -chdir=${{ env.INT_TEST_DIR }} validate
 

@@ -13,14 +13,14 @@ permissions:
   pull-requests: write
 
 env:
-  LOCAL_TF_VERSION: "1.13.2"
+  LOCAL_TF_VERSION: 1.13.2
 
 jobs:
 # -------------------------------------
-# Job: Run basic CI test first
+# Job: Run CI checks first
 # -------------------------------------
   ci-checks:
-    name: "CI CHECK NAME TEST"
+    name: "Run CI Tests"
     uses: ./.github/workflows/ci.yaml
     secrets: inherit
 
@@ -117,14 +117,6 @@ jobs:
           echo "📁 Test directory: ${{ env.TEST_DIR }}"
           echo "🔧 Terraform version: ${{ env.LOCAL_TF_VERSION }} (ensure your remote workspace is configured to match)"
           echo "==============================================="
-      
-      # - name: Checkout baseline module version (upgrade_from)
-      #   run: |
-      #     BASELINE_DIR="baseline-${{ matrix.upgrade_from_version }}"
-      #     git clone . "$BASELINE_DIR"
-      #     cd "$BASELINE_DIR"
-      #     git checkout "${{ matrix.upgrade_from_version }}"
-      #     ls -l
 
       - name: Checkout baseline at tag
         uses: actions/checkout@v4
@@ -133,21 +125,11 @@ jobs:
           path: baseline-${{ matrix.upgrade_from_version }}
           fetch-depth: 1
 
-      # - name: Update module source to baseline version
-      #   run: |
-      #     BASELINE_DIR="baseline-${{ matrix.upgrade_from_version }}"
-      #     sed -i 's|source = .*|source = "git::https://github.com/${{ github.repository }}.git//.?ref=${{ matrix.upgrade_from_version }}"|' "$BASELINE_DIR/tests/${{ env.TEST_DIR }}/main.tf"
-
       - name: Terraform apply baseline version
         run: |
           BASELINE_DIR="baseline-${{ matrix.upgrade_from_version }}"
-          #cat "$BASELINE_DIR/${{ env.TEST_DIR }}/main.tf"
           terraform -chdir="$BASELINE_DIR/${{ env.TEST_DIR }}" init -input=false
           terraform -chdir="$BASELINE_DIR/${{ env.TEST_DIR }}" apply -auto-approve
-
-      # - name: Switch to local module source (current branch)
-      #   run: |
-      #     sed -i 's|source = .*|source = "../.."|' tests/${{ env.TEST_DIR }}/main.tf
 
       - name: Terraform plan target version
         id: plan_target_version
