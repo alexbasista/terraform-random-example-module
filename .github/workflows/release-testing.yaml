@@ -19,7 +19,7 @@ jobs:
 # -------------------------------------
 # Job: Run basic CI test first
 # -------------------------------------
-  ci-checks:
+  ci-checks-NAMETEST:
     #name: "Terraform Module CI Checks"
     uses: ./.github/workflows/ci.yaml
     secrets: inherit
@@ -94,9 +94,9 @@ jobs:
       TEST_DIR: tests/integration
     strategy:
       fail-fast: false
-      max-parallel: 1  # Sequential execution since all jobs target the same TFC workspace
       matrix:
         upgrade_from_version: ${{ fromJson(needs.discover-semver-tags.outputs.tags) }}
+      max-parallel: 1  # Sequential execution since matrix jobs target the same TFC workspace
     steps:
       - name: Checkout repo
         uses: actions/checkout@v4
@@ -138,7 +138,7 @@ jobs:
       #     BASELINE_DIR="baseline-${{ matrix.upgrade_from_version }}"
       #     sed -i 's|source = .*|source = "git::https://github.com/${{ github.repository }}.git//.?ref=${{ matrix.upgrade_from_version }}"|' "$BASELINE_DIR/tests/${{ env.TEST_DIR }}/main.tf"
 
-      - name: Terraform Init + Apply baseline version
+      - name: Terraform apply baseline version
         run: |
           BASELINE_DIR="baseline-${{ matrix.upgrade_from_version }}"
           #cat "$BASELINE_DIR/${{ env.TEST_DIR }}/main.tf"
@@ -149,7 +149,7 @@ jobs:
       #   run: |
       #     sed -i 's|source = .*|source = "../.."|' tests/${{ env.TEST_DIR }}/main.tf
 
-      - name: Terraform init + plan target version
+      - name: Terraform plan target version
         id: plan_target_version
         run: |
           terraform -chdir=${{ env.TEST_DIR }} init -upgrade -input=false
@@ -189,7 +189,7 @@ jobs:
               issue_number: context.issue.number,
               owner: context.repo.owner,
               repo: context.repo.repo,
-              body: `### Terraform Plan (Upgrade Test from \`${{ matrix.upgrade_from_version }}\`)\n\`\`\`\n${plan}\n\`\`\``
+              body: `### Terraform Plan Output (Upgrade Test from \`${{ matrix.upgrade_from_version }}\`)\n\`\`\`\n${plan}\n\`\`\``
             });
 
       - name: Terraform apply target version
