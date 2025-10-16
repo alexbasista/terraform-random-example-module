@@ -1,6 +1,6 @@
 module "module_metadata_tags" {
   source  = "app.terraform.io/abasista-tfc/module-metadata-tags/random"
-  version = "4.0.0"
+  version = "4.1.0"
   
   caller_module_path = path.module
 }
