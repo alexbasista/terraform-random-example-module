@@ -6,5 +6,5 @@ module "module_metadata_tags" {
 }
 
 output "debug_module_metadata_tags" {
-    value = module.tags_metadata.debug
+    value = module.module_metadata_tags.debug
 }
